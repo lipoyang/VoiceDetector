@@ -1,5 +1,6 @@
 #pragma once
 #include <stdint.h>
+#include <queue>
 
 // 状態
 #define VD_IDLE     -1  // 待機
@@ -21,36 +22,18 @@
 #define RESULT_TIMEOUT  (RESULT_ERROR + 1)  // タイムアウト
 #define RESULT_CANCEL   (RESULT_ERROR + 2)  // キャンセル
 
-// マイク用バッファ制御構造体
-struct RingBufferCtrl{
-    int frame_size;
-    int frame_total;
-    int w_frame;
-    int r_frame;
-
-    bool available() {return (r_frame != w_frame);}
-    int  r_index() {return (r_frame * frame_size);}
-    void r_frame_inc(){
-        int next_frame = r_frame + 1;
-        if(next_frame >= frame_total){
-            next_frame = 0;
-        }
-        r_frame = next_frame;
-    }
-};
-
 // 音声コマンド検出器
 class VoiceDetector
 {
 public:
-    void begin(int16_t *voiceBuffer, int16_t *micBuffer, RingBufferCtrl *ring);
+    void begin(int16_t *voiceBuffer);
     bool regist();
     int  detect();
+    void putMicData(int16_t *data);
 
     int state;
+    std::queue <int16_t*> micQueue;
 
 private:
     int16_t* rxMic();
-    
-    RingBufferCtrl *ring;
 };

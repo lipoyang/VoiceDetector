@@ -6,6 +6,7 @@
  */
 
 #include <Arduino.h>
+#include <MP.h>
 #include <algorithm> // copy_n
 #include <memory>
 #include <stdio.h>
@@ -19,11 +20,13 @@
 
 int frameNo; // デバッグ用
 
+const int MIC_BUFF_FRAMES = 3;      // マイクバッファのVADフレーム数 3フレーム
 constexpr int kSampleRate = 16000;
 constexpr int audioLength = kSampleRate * 3;  // 3 seconds
 // constexpr int kRxBufferNum = 3;
+
 int16_t* rawAudio;
-int16_t* rxBuffer;
+//int16_t* rxBuffer;
 int16_t* rawBuffer;
 NoiseSuppressor nsInst;
 simplevox::VadEngine vadEngine;
@@ -59,12 +62,12 @@ int16_t* VoiceDetector::rxMic()
   // const int frameLength = vadEngine.config().frame_length();
 
   // メインコアで録音したデータを取得 (by Bizan Nishimura)
-  if(ring->available()){
-    int index = ring->r_index();
-    ring->r_frame_inc();
-    return &rxBuffer[index];
-  }else{
+  if(micQueue.empty()){
     return nullptr;
+  }else{
+    int16_t *data = micQueue.front();
+    micQueue.pop();
+    return data;
   }
 }
 
@@ -120,9 +123,7 @@ float* feature_get(int number) { return &features[number * mfccCoefNum]; }
 
 // 初期化
 // voiceBuffer : 音声バッファ用メモリ
-// micBuffer : マイクバッファ用メモリ
-// ring : マイク用バッファ制御構造体
-void VoiceDetector::begin(int16_t *voiceBuffer, int16_t *micBuffer, RingBufferCtrl *ring)
+void VoiceDetector::begin(int16_t *voiceBuffer)
 {
   auto vadConfig = vadEngine.config();
   vadConfig.sample_rate = kSampleRate;
@@ -136,8 +137,6 @@ void VoiceDetector::begin(int16_t *voiceBuffer, int16_t *micBuffer, RingBufferCt
 #else
   // メインコアで確保した共有メモリを使用 (by Bizan Nishimura)
   rawAudio = voiceBuffer;
-  rxBuffer = micBuffer;
-  this->ring = ring;
 #endif  
   raw_init(mfccConfig.frame_length() + vadConfig.frame_length());
   feature_init(mfccConfig, vadConfig, 3000);
@@ -174,7 +173,7 @@ bool VoiceDetector::regist()
 {
   bool ret =false;
   auto* data = rxMic();
-   if (data == nullptr) { return ret; }
+  if (data == nullptr) { return ret; }
 
   nsInst.process(data, data);
 
@@ -257,4 +256,15 @@ int VoiceDetector::detect()
     if(dist < 180) ret = true;
   }    
   return (ret ? 0 : -1); // TODO
+}
+
+// マイク音声データを追加
+// data : マイク音声データ
+void VoiceDetector::putMicData(int16_t *data)
+{
+  if( micQueue.size() >= MIC_BUFF_FRAMES){
+    MPLog("Buffer over flow!\n");
+    return;
+  }
+  micQueue.push(data);
 }

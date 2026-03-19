@@ -79,7 +79,7 @@ void loop()
     int num = c - '0';
 
     // 0-4 : コマンド登録
-    if (num >= 0 && num <= MAX_COMMAND) {
+    if (num >= 0 && num < MAX_COMMAND) {
       printf("Regist Voice Command (%d)\n", num);
       vd.regist(num);
     }
@@ -106,4 +106,6 @@ void loop()
 
   // 音声コマンド検出器のメインループ処理
   vd.loop();
+
+  delay(1);
 }

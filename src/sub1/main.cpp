@@ -10,22 +10,15 @@
 const int MAINCORE_ID = 0;
 
 // メッセージID定義
-const int8_t MSGID_BEGUN = 1;         // S->M 初期化完了通知
+const int8_t MSGID_BEGUN        = 1;  // S->M 初期化完了通知
 const int8_t MSGID_SHARE_MEMORY = 2;  // M->S 共有メモリ通知 
-const int8_t MSGID_REQ_REGIST = 3;    // M->S コマンド登録開始要求
-const int8_t MSGID_REQ_DETECT = 4;    // M->S コマンド検出開始要求
-const int8_t MSGID_REQ_CANCEL = 5;    // M->S コマンド登録/検出キャンセル
-const int8_t MSGID_ON_REGIST = 5;     // S->M コマンド登録通知
-const int8_t MSGID_ON_DETECT = 6;     // S->M コマンド検出通知
-const int8_t MSGID_ON_ERROR = 7;      // S->M エラー通知
-
-// メッセージデータ
-// 共有メモリ通知用
-struct S_SharedMemory{
-  int16_t *voiceBuffer;
-  int16_t *micBuffer;
-  RingBufferCtrl *ring;
-};
+const int8_t MSGID_REQ_REGIST   = 3;  // M->S コマンド登録開始要求
+const int8_t MSGID_REQ_DETECT   = 4;  // M->S コマンド検出開始要求
+const int8_t MSGID_REQ_CANCEL   = 5;  // M->S コマンド登録/検出キャンセル
+const int8_t MSGID_MIC_DATA     = 6;  // M->S マイク音声データ通知
+const int8_t MSGID_ON_REGIST    = 7;  // S->M コマンド登録通知
+const int8_t MSGID_ON_DETECT    = 8;  // S->M コマンド検出通知
+const int8_t MSGID_ON_ERROR     = 9;  // S->M エラー通知
 
 // 音声コマンド検出器
 VoiceDetector vd;
@@ -60,7 +53,7 @@ void setup()
   // 共有メモリを取得する
   MP.RecvTimeout(MP_RECV_BLOCKING);
   int8_t msgid;
-  S_SharedMemory *msgdata;
+  int16_t *msgdata;
   do {
     MP.Recv(&msgid, &msgdata);
     if(msgid == MSGID_SHARE_MEMORY){
@@ -71,10 +64,8 @@ void setup()
   } while(1);
 
   // 音声コマンド検出器を初期化
-  int16_t *voiceBuffer = msgdata->voiceBuffer;
-  int16_t *micBuffer   = msgdata->micBuffer;
-  RingBufferCtrl *ring = msgdata->ring;
-  vd.begin(voiceBuffer, micBuffer, ring);
+  int16_t *voiceBuffer = msgdata;
+  vd.begin(voiceBuffer);
   vd.state = VD_IDLE;
 
   // 初期化完了をメインコアに知らせる(2)
@@ -112,6 +103,10 @@ void loop()
       case MSGID_REQ_CANCEL:
         vd.state = VD_IDLE;
         break;
+      // マイク音声データ通知
+      case MSGID_MIC_DATA:
+        vd.putMicData((int16_t*)msgdata);
+        break;
       default:
         MPLog("Unknown msgid %d\n", msgid);
         vd.state = VD_IDLE;
@@ -120,7 +115,7 @@ void loop()
   }
   // コマンド登録処理
   if(vd.state >= VD_REGIST0 && vd.state <= VD_REGIST4){
-    bool ret = vd.detect();
+    bool ret = vd.regist();
     if(ret == true){
       MP.Send(MSGID_ON_REGIST, (uint32_t)RESULT_SUCCESS);
       vd.state = VD_IDLE;

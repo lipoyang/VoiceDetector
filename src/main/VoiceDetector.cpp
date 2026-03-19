@@ -8,42 +8,19 @@
 // オーディオ
 AudioClass *theAudio;
 
-// マイク用バッファ制御構造体
-struct RingBufferCtrl{
-    int frame_size;
-    int frame_total;
-    int w_frame;
-    int r_frame;
-    void clear(){
-        w_frame = r_frame = 0;
-    }
-    int  w_index() {return (w_frame * frame_size);}
-    bool w_frame_inc(){
-        int next_frame = w_frame + 1;
-        if(next_frame >= frame_total){
-            next_frame = 0;
-        }
-        if(next_frame == r_frame){
-            return false;
-        }else{
-            w_frame = next_frame;
-            return true;
-        }
-    }
-};
-
 // コアID
 const int SUBCORE_VD  = 1;
 
 // メッセージID定義
-const int8_t MSGID_BEGUN = 1;         // S->M 初期化完了通知
+const int8_t MSGID_BEGUN        = 1;  // S->M 初期化完了通知
 const int8_t MSGID_SHARE_MEMORY = 2;  // M->S 共有メモリ通知 
-const int8_t MSGID_REQ_REGIST = 3;    // M->S コマンド登録開始要求
-const int8_t MSGID_REQ_DETECT = 4;    // M->S コマンド検出開始要求
-const int8_t MSGID_REQ_CANCEL = 5;    // M->S コマンド登録/検出キャンセル
-const int8_t MSGID_ON_REGIST = 5;     // S->M コマンド登録通知
-const int8_t MSGID_ON_DETECT = 6;     // S->M コマンド検出通知
-const int8_t MSGID_ON_ERROR = 7;      // S->M エラー通知
+const int8_t MSGID_REQ_REGIST   = 3;  // M->S コマンド登録開始要求
+const int8_t MSGID_REQ_DETECT   = 4;  // M->S コマンド検出開始要求
+const int8_t MSGID_REQ_CANCEL   = 5;  // M->S コマンド登録/検出キャンセル
+const int8_t MSGID_MIC_DATA     = 6;  // M->S マイク音声データ通知
+const int8_t MSGID_ON_REGIST    = 7;  // S->M コマンド登録通知
+const int8_t MSGID_ON_DETECT    = 8;  // S->M コマンド検出通知
+const int8_t MSGID_ON_ERROR     = 9;  // S->M エラー通知
 
 // 定数
 const int SAMPLE_RATE    = 16000;   // サンプリング周波数 16kHz
@@ -51,14 +28,15 @@ const int VOICE_BUFF_SEC = 3;       // 音声コマンド登録用バッファ 3
 const int VAD_FRAME_MSEC = 10;      // VADフレーム 10msec
 const int MIC_BUFF_FRAMES = 3;      // マイクバッファのVADフレーム数 3フレーム
 
-// メッセージデータ
-// 共有メモリ通知用
-struct S_SharedMemory{
-  int16_t   *voiceBuffer;
-  int16_t   *micBuffer;
-  RingBufferCtrl *ring;
-};
-static S_SharedMemory  sm;
+const size_t VOICE_BUFF_SIZE = SAMPLE_RATE * VOICE_BUFF_SEC * sizeof(int16_t);
+const size_t VAD_BUFF_SIZE   = SAMPLE_RATE * VAD_FRAME_MSEC / 1000 * sizeof(int16_t);
+
+// TODO メンバへ　インデックスは初期化、クリアも
+int16_t   *voiceBuffer; // 音声コマンド登録用バッファ
+int16_t   *micBuffer1;   // マイク入力用バッファ1 (マイクから)
+int16_t   *micBuffer2;   // マイク入力用バッファ2 (サブコアへ)
+uint32_t   frame_filled = 0;
+uint32_t   frame_index = 0;
 
 // オーディオの警告コールバック
 static void audio_attention_cb(const ErrorAttentionParam *atprm)
@@ -91,18 +69,10 @@ void VoiceDetector::begin()
     }
 
     // メモリ確保
-    size_t voiceBufferSize = SAMPLE_RATE * VOICE_BUFF_SEC * sizeof(int16_t);
-    sm.voiceBuffer = (int16_t *)MP.AllocSharedMemory(voiceBufferSize);
-    
-    size_t micBufferSize = MIC_BUFF_FRAMES * SAMPLE_RATE * VAD_FRAME_MSEC / 1000 * sizeof(int16_t);
-    sm.micBuffer = (int16_t *)MP.AllocSharedMemory(micBufferSize);
-    
-    sm.ring = (RingBufferCtrl*)MP.AllocSharedMemory(sizeof(RingBufferCtrl));
-    sm.ring->frame_size = SAMPLE_RATE * VAD_FRAME_MSEC / 1000 * sizeof(int16_t);
-    sm.ring->frame_total = MIC_BUFF_FRAMES;
-    sm.ring->clear();
-
-    MP.Send(MSGID_SHARE_MEMORY, &sm, SUBCORE_VD);
+    voiceBuffer = (int16_t *)MP.AllocSharedMemory(VOICE_BUFF_SIZE);
+    micBuffer1 = (int16_t *)malloc(VAD_BUFF_SIZE);
+    micBuffer2 = (int16_t *)malloc(MIC_BUFF_FRAMES * VAD_BUFF_SIZE);
+    MP.Send(MSGID_SHARE_MEMORY, voiceBuffer, SUBCORE_VD);
 
     // サブコアのVoiceDetectorの初期化完了待ち
     MP.Recv(&msgid, &msgdata, SUBCORE_VD);
@@ -158,25 +128,29 @@ void VoiceDetector::loop()
         }
     }
 
-    // マイクから読み出す
-    if (theAudio->getRecordingSize() > sm.ring->frame_size){
-        int index = sm.ring->w_index();
-        int16_t *buff = &(sm.micBuffer[index]);
+    if(state != VD_IDLE)
+    {
+        // マイクから読み出す
+        uint32_t to_read = VAD_BUFF_SIZE - frame_filled;
         uint32_t read_size = 0;
 
-        int err = theAudio->readFrames((char*)(buff), sm.ring->frame_size, &read_size);
+        int err = theAudio->readFrames((char*)micBuffer1 + frame_filled, to_read, &read_size);
 
         if (err != AUDIOLIB_ECODE_OK && err != AUDIOLIB_ECODE_INSUFFICIENT_BUFFER_AREA) {
             printf("VoiceDetector: mic err = %d\n", err);
             sleep(1);
             theAudio->stopRecorder();
+            frame_filled = frame_index = 0;
             return;
         }
-        if(read_size != (uint32_t)sm.ring->frame_size){
-            printf("VoiceDetector: mic few data (%lu)\n", read_size);
-        }
-        if(sm.ring->w_frame_inc() == false){
-            printf("VoiceDetector: mic buffer overflow\n");
+        
+        frame_filled += read_size;
+        if(frame_filled >= VAD_BUFF_SIZE){
+            frame_filled = 0;
+            memcpy(&micBuffer2[frame_index * VAD_BUFF_SIZE], micBuffer1, VAD_BUFF_SIZE);
+            MP.Send(MSGID_MIC_DATA, &micBuffer2[frame_index * VAD_BUFF_SIZE], SUBCORE_VD);
+            frame_index++;
+            if(frame_index >= MIC_BUFF_FRAMES) frame_index = 0;
         }
     }
 }
@@ -185,7 +159,7 @@ void VoiceDetector::loop()
 // command_no : コマンド番号 (0,1,2,3,4)
 void VoiceDetector::regist(int command_no)
 {
-    if(command_no < 0 || command_no > MAX_COMMAND){
+    if(command_no < 0 || command_no >= MAX_COMMAND){
         printf("VoiceDetector::regist() : Wrong command_no (%d)\n", command_no);
         return;
     }
