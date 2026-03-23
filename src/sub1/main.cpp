@@ -148,7 +148,7 @@ void loop()
   if(vd.state >= VD_REGIST0 && vd.state <= VD_REGIST4){
     bool ret = vd.regist();
     if(ret == true){
-      ret = true; // vd.saveFile(vd.state); TODO HOGE
+      ret = vd.saveFile(vd.state);
       if(ret == true){
         MP.Send(MSGID_ON_REGIST, (uint32_t)vd.state);
       }else{

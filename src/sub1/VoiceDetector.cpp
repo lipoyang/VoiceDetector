@@ -200,8 +200,10 @@ bool VoiceDetector::regist()
     mfccEngine.saveFile(base_path file_name, *mfcc);
     ret = true;
   }
-  vadEngine.reset();
+#else
+  ret = true;
 #endif
+  vadEngine.reset();
   return ret;
 }
 

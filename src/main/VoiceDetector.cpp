@@ -125,8 +125,8 @@ void VoiceDetector::loop()
         switch (ret) {
         case MSGID_ON_REGIST:
             theAudio->stopRecorder();
-            if(msgdata < VD_REGIST4){
-                // saveFile(msgdata); TODO HOGE
+            if(msgdata <= MFCC_4){
+                saveFile(msgdata);
                 if (onRegist) {
                     onRegist(msgdata);
                 }
