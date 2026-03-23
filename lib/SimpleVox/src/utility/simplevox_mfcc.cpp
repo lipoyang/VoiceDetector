@@ -13,6 +13,8 @@
  */
 #include "simplevox_mfcc.h"
 
+#include <Arduino.h>
+#include <MP.h>
 #include <math.h>
 #include <memory>
 #include <new>
@@ -206,14 +208,14 @@ namespace simplevox
     {
         if (!VerifyMfccConfig(config))
         {
-            printf("Argument error\n");
+            MPLog("Argument error\n");
             return false;
         }
 
         window_.reset(new (std::nothrow) int16_t[config.frame_length()]);
         if (!SetupHammingWindow(window_.get(), config.frame_length()))
         {
-            printf("Setup window error\n");
+            MPLog("Setup window error\n");
             release();
             return false;
         }
@@ -221,7 +223,7 @@ namespace simplevox
         mel_position_.reset(new (std::nothrow) int16_t[config.mel_channel + 2]);
         if (!SetupMelFilter(mel_position_.get(), config.sample_rate, config.fft_num, config.mel_channel))
         {
-            printf("Setup MelFilter error\n");
+            MPLog("Setup MelFilter error\n");
             release();
             return false;
         }
@@ -229,7 +231,7 @@ namespace simplevox
         dctII_table_.reset(new (std::nothrow) int16_t[config.coef_num * config.mel_channel]);
         if (!SetupDctTable(dctII_table_.get(), config.coef_num, config.mel_channel))
         {
-            printf("Setup DctTable error\n");
+            MPLog("Setup DctTable error\n");
             release();
             return false;
         }
@@ -237,7 +239,7 @@ namespace simplevox
         mel_data_.reset(new (std::nothrow) float[config.mel_channel]);
         if (!mel_data_)
         {
-            printf("Failed to create heap\n");
+            MPLog("Failed to create heap\n");
             release();
             return false;
         }
@@ -245,7 +247,7 @@ namespace simplevox
         fft_data_.reset(new (std::nothrow) float[config.fft_num]);
         if (!fft_data_)
         {
-            printf("Failed to create heap\n");
+            MPLog("Failed to create heap\n");
             release();
             return false;
         }
@@ -255,7 +257,7 @@ namespace simplevox
 #else
         arm_status status = arm_rfft_fast_init_f32(&S, config.fft_num);
         if (status != ARM_MATH_SUCCESS) {
-            printf("DSP init error\n");
+            MPLog("DSP init error\n");
             release();
             return false;
         }
@@ -518,7 +520,7 @@ namespace simplevox
         std::unique_ptr<float[]> temp_feature(new float[frame_num * coef_num]);
         if (mfcc->feature_ == NULL || !temp_feature)
         {
-            printf("Failed to create heap.\n");
+            MPLog("Failed to create heap.\n");
             delete mfcc;
             return nullptr;
         }
@@ -538,7 +540,7 @@ namespace simplevox
         auto* mfcc = new MfccFeature(frame_num, coef_num);
         if (mfcc->feature_ == NULL)
         {
-            printf("Failed to create heap.\n");
+            MPLog("Failed to create heap.\n");
             delete mfcc;
             return nullptr;
         }

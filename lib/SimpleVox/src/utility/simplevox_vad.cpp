@@ -14,6 +14,8 @@
 
 #include "simplevox_vad.h"
 
+#include <Arduino.h>
+#include <MP.h>
 #include <algorithm>
 #include <atomic>
 #include <new>
@@ -22,7 +24,7 @@
 
 #if defined(WAV_FILE_DEBUG) || defined(MIC_DEBUG)
 extern int frameNo;
-#define DEBUG_PRINTF(fmt, ...) printf(fmt, __VA_ARGS__)
+#define DEBUG_PRINTF(fmt, ...) MPLog(fmt, __VA_ARGS__)
 #else 
 #define DEBUG_PRINTF(fmt, ...)
 #endif

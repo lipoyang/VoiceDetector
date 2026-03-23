@@ -147,12 +147,12 @@ void VoiceDetector::begin(int16_t *voiceBuffer, uint8_t *fileBuffer)
   nsInst.init(vadConfig.frame_time_ms, 1, vadConfig.sample_rate);
   if (!vadEngine.init(vadConfig))
   {
-    puts("Failed to initialize vad.");
+    MPLog("Failed to initialize vad.\n");
     while(true) delay(10);
   }
   if (!mfccEngine.init(mfccConfig))
   {
-    puts("Failed to initialize mfcc.");
+    MPLog("Failed to initialize mfcc.\n");
     while(true) delay(10);
   }
   
@@ -161,13 +161,13 @@ void VoiceDetector::begin(int16_t *voiceBuffer, uint8_t *fileBuffer)
 
   if (stat(base_path file_name, &st) == 0) {
     if ((st.st_mode & S_IFMT) == S_IFREG) {
-      puts("wakeword.bin exists.");
+      MPLog("wakeword.bin exists.\n");
       mfcc = mfccEngine.loadFile(base_path file_name);
     }else{
-      puts("wakeword.bin is not a normal file!");
+      MPLog("wakeword.bin is not a normal file!\n");
     }
   }else{
-    puts("wakeword.bin not found.");
+    MPLog("wakeword.bin not found.\n");
   }
 #endif
 }
@@ -188,7 +188,7 @@ bool VoiceDetector::regist()
   float t_end = (float)frameNo * 0.01f;
   float t_len = (float)length * 0.01f / 160.0f;
   float t_begin = t_end - t_len;
-  printf("Detected! %.2f - %.2f sec (len = %.2f sec)\n", t_begin, t_end, t_len);
+  MPLog("Detected! %.2f - %.2f sec (len = %.2f sec)\n", t_begin, t_end, t_len);
 #endif
 
   if (mfcc != nullptr){ delete mfcc; }
@@ -251,13 +251,13 @@ int VoiceDetector::detect()
   {
 #if defined(WAV_FILE_DEBUG) || defined(MIC_DEBUG)
       float t_end = (float)frameNo * 0.01f;
-      printf("Comparing... %.2f sec\n", t_end);
+      MPLog("Comparing... %.2f sec\n", t_end);
 #endif
     std::unique_ptr<simplevox::MfccFeature> feature(mfccEngine.create(features, mfccFrameCount, mfccCoefNum));
     const auto dist = simplevox::calcDTW(*mfcc, *feature);
 
     char pass = (dist < 180) ? '!': '?';  // 180未満で一致と判定, しきい値は要調整
-    printf("Dist: %6lu, %c\n", dist, pass);
+    MPLog("Dist: %6lu, %c\n", dist, pass);
     raw_reset();
     mfccFrameCount = 0;
     vadEngine.reset();
