@@ -147,6 +147,25 @@ namespace simplevox
          */
         static MfccFeature* loadFile(const char *path);
 
+        // 追加 by Bizan Nishimura
+        /**
+         * @brief   MFCCをメモリに保存します
+         * @param[in]   fileBuffer    メモリの先頭アドレス
+         * @param[in]   bufferSize    メモリの最大サイズ
+         * @param[in]   mfcc    保存するMFCC
+         * @return  保存に成功したらtrue, そうでなければfalse
+         */
+        static bool saveMemory(uint8_t *fileBuffer, const uint32_t bufferSize, const MfccFeature& mfcc);
+
+        // 追加 by Bizan Nishimura
+        /**
+         * @brief   メモリからMFCCを読み出します
+         * @param[in]   fileBuffer    メモリの先頭アドレス
+         * @param[in]   bufferSize    メモリの最大サイズ
+         * @return  読み出しに成功したらnullptr以外, 失敗したらnullptr 
+         */
+        static MfccFeature* loadMemory(uint8_t *fileBuffer, const uint32_t bufferSize);
+
         /**
          * @brief   raw audio dataを基にMFCCを作成します
          * @param[in]   raw_audio   raw audio

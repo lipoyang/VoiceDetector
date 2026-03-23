@@ -10,13 +10,13 @@
 #include <algorithm> // copy_n
 #include <memory>
 #include <stdio.h>
-#include <sys/stat.h>
+//#include <sys/stat.h>
 #include "simplevox.h"
 #include "NoiseSuppressor.h"
 #include "VoiceDetector.h"
 
-#define base_path "/mnt/sd0"
-#define file_name "/wakeword.bin"
+//#define base_path "/mnt/sd0"
+//#define file_name "/wakeword.bin"
 
 int frameNo; // デバッグ用
 
@@ -24,10 +24,12 @@ const int MIC_BUFF_FRAMES = 3;      // マイクバッファのVADフレーム�
 constexpr int kSampleRate = 16000;
 constexpr int audioLength = kSampleRate * 3;  // 3 seconds
 // constexpr int kRxBufferNum = 3;
+const size_t MFCC_FILE_SIZE_MAX = 4096;
 
 int16_t* rawAudio;
 //int16_t* rxBuffer;
 int16_t* rawBuffer;
+uint8_t* fileBuffer;
 NoiseSuppressor nsInst;
 simplevox::VadEngine vadEngine;
 simplevox::MfccEngine mfccEngine;
@@ -123,7 +125,7 @@ float* feature_get(int number) { return &features[number * mfccCoefNum]; }
 
 // 初期化
 // voiceBuffer : 音声バッファ用メモリ
-void VoiceDetector::begin(int16_t *voiceBuffer)
+void VoiceDetector::begin(int16_t *voiceBuffer, uint8_t *fileBuffer)
 {
   auto vadConfig = vadEngine.config();
   vadConfig.sample_rate = kSampleRate;
@@ -137,6 +139,7 @@ void VoiceDetector::begin(int16_t *voiceBuffer)
 #else
   // メインコアで確保した共有メモリを使用 (by Bizan Nishimura)
   rawAudio = voiceBuffer;
+  ::fileBuffer = fileBuffer;
 #endif  
   raw_init(mfccConfig.frame_length() + vadConfig.frame_length());
   feature_init(mfccConfig, vadConfig, 3000);
@@ -153,6 +156,7 @@ void VoiceDetector::begin(int16_t *voiceBuffer)
     while(true) delay(10);
   }
   
+#if 0 // (by Bizan Nishimura)
   struct stat st;
 
   if (stat(base_path file_name, &st) == 0) {
@@ -165,6 +169,7 @@ void VoiceDetector::begin(int16_t *voiceBuffer)
   }else{
     puts("wakeword.bin not found.");
   }
+#endif
 }
 
 // 音声コマンド登録処理
@@ -188,12 +193,15 @@ bool VoiceDetector::regist()
 
   if (mfcc != nullptr){ delete mfcc; }
   mfcc = mfccEngine.create(rawAudio, length);
+
+#if 0 // (by Bizan Nishimura)
   if (mfcc)
   {
     mfccEngine.saveFile(base_path file_name, *mfcc);
     ret = true;
   }
   vadEngine.reset();
+#endif
   return ret;
 }
 
@@ -267,4 +275,28 @@ void VoiceDetector::putMicData(int16_t *data)
     return;
   }
   micQueue.push(data);
+}
+
+// 追加 by Bizan Nishimura
+
+// ファイルからロードしたMFCCデータでMFCCオブジェクトを生成する
+// command_no : コマンド番号
+// 戻り値 : 成否
+bool VoiceDetector::loadFile(int command_no)
+{
+  mfcc = mfccEngine.loadMemory(fileBuffer, MFCC_FILE_SIZE_MAX);
+
+  if(mfcc == nullptr) return false;
+
+  return true;
+}
+
+// ファイルにセーブするMFCCデータをMFCCオブジェクトから展開する
+bool VoiceDetector::saveFile(int command_no)
+{
+  if(mfcc == nullptr) return false;
+
+  bool ret = mfccEngine.saveMemory(fileBuffer,  MFCC_FILE_SIZE_MAX, *mfcc);
+  
+  return ret;
 }

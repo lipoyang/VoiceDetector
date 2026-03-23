@@ -458,6 +458,54 @@ namespace simplevox
         return mfcc;
     }
 
+    // 追加 by Bizan Nishimura
+    bool MfccEngine::saveMemory(uint8_t *fileBuffer, const uint32_t bufferSize, const MfccFeature& mfcc)
+    {
+        const auto tag = static_cast<uint8_t>(MfccTag::VERSION1);
+        fileBuffer[0] = tag;
+
+        const int32_t size = mfcc.size();
+        *((int32_t*)&fileBuffer[1]) = size;
+
+        const int32_t coef_num = mfcc.dimension();
+        *((int32_t*)&fileBuffer[5]) = coef_num;
+
+        const auto data_byte = sizeof(*mfcc.feature_);
+        const unsigned int data_num = size * coef_num;
+        if ((data_byte * data_num) > (bufferSize - (1 + 4 + 4))){
+            return false;
+        }
+        memcpy(&fileBuffer[9], mfcc.feature_, data_byte * data_num);
+
+        return true;
+    }
+
+    // 追加 by Bizan Nishimura
+    MfccFeature *MfccEngine::loadMemory(uint8_t *fileBuffer, const uint32_t bufferSize)
+    {
+        uint8_t tag = fileBuffer[0];
+        tag = tag; // TODO 
+
+        const int32_t size = *((int32_t*)&fileBuffer[1]);
+        const int32_t coef_num = *((int32_t*)&fileBuffer[5]);
+
+        MfccFeature* mfcc = new MfccFeature(size, coef_num);
+        if (mfcc == nullptr || mfcc->feature_ == nullptr)
+        {
+            return nullptr;
+        }
+
+        const auto data_byte = sizeof(*mfcc->feature_);
+        const unsigned int data_num = size * coef_num;
+        if ((data_byte * data_num) > (bufferSize - (1 + 4 + 4))){
+            delete mfcc;
+            return nullptr;
+        }
+        memcpy(mfcc->feature_, &fileBuffer[9], data_byte * data_num);
+
+        return mfcc;
+    }
+
     MfccFeature *MfccEngine::create(const int16_t *raw_audio, int length)
     {
         const int frame_length = mfcc_config_.frame_length();

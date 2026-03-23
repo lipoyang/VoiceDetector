@@ -19,6 +19,12 @@
 #define RESULT_ERROR    0x10000;            // エラー
 #define RESULT_TIMEOUT  (RESULT_ERROR + 1)  // タイムアウト
 #define RESULT_CANCEL   (RESULT_ERROR + 2)  // キャンセル
+#define MFCC_0          0   // コマンド0のMFCC
+#define MFCC_1          1   // コマンド1のMFCC  
+#define MFCC_2          2   // コマンド2のMFCC
+#define MFCC_3          3   // コマンド3のMFCC
+#define MFCC_4          4   // コマンド4のMFCC
+#define MFCC_END        0x10000 // MFCCのロード終了
 
 // 音声コマンド検出器
 class VoiceDetector
@@ -38,4 +44,7 @@ public:
 
 private:
     int state;
+
+    int loadFile(int command_no);
+    int saveFile(int command_no);
 };

@@ -19,6 +19,8 @@ const int8_t MSGID_MIC_DATA     = 6;  // M->S マイク音声データ通知
 const int8_t MSGID_ON_REGIST    = 7;  // S->M コマンド登録通知
 const int8_t MSGID_ON_DETECT    = 8;  // S->M コマンド検出通知
 const int8_t MSGID_ON_ERROR     = 9;  // S->M エラー通知
+const int8_t MSGID_LOAD_MFCC    = 10; // M->S MFCCデータのロード
+//const int8_t MSGID_SAVE_MFCC    = 11; // S->M MFCCデータのセーブ 
 
 // 音声コマンド検出器
 VoiceDetector vd;
@@ -65,8 +67,37 @@ void setup()
 
   // 音声コマンド検出器を初期化
   int16_t *voiceBuffer = msgdata;
-  vd.begin(voiceBuffer);
+  const size_t VOICE_BUFF_SIZE = 96000;
+  uint8_t *fileBuffer = &((uint8_t*)voiceBuffer)[VOICE_BUFF_SIZE]; // ※ voiceBufferの後に配置 (バッドノウハウ)
+  vd.begin(voiceBuffer, fileBuffer);
   vd.state = VD_IDLE;
+
+  // MFCCデータのロード
+  uint32_t msgdata2;
+  while(1){
+    do {
+      MP.Recv(&msgid, &msgdata2);
+      if(msgid == MSGID_LOAD_MFCC){
+        break;
+      }else{
+        MPLog("Unexpected message ID %d\n", msgid);
+      }
+    } while(1);
+
+    if(msgdata2 == MFCC_END){
+      MPLog("MFCC load completed\n");
+      break;
+    }
+    else if(msgdata2 >= MFCC_0 && msgdata2 <= MFCC_4){
+      bool result = vd.loadFile(MFCC_0); // TODO
+      if(result == false){
+        MPLog("Failed to load MFCC[%ld]\n", msgdata2);
+      }
+    }
+    else{
+      MPLog("Unexpected message DATA (%ld)\n", msgdata2);
+    }
+  }
 
   // 初期化完了をメインコアに知らせる(2)
   MP.Send(MSGID_BEGUN, BEGIN_STEP2, MAINCORE_ID);
@@ -117,7 +148,13 @@ void loop()
   if(vd.state >= VD_REGIST0 && vd.state <= VD_REGIST4){
     bool ret = vd.regist();
     if(ret == true){
-      MP.Send(MSGID_ON_REGIST, (uint32_t)RESULT_SUCCESS);
+      ret = true; // vd.saveFile(vd.state); TODO HOGE
+      if(ret == true){
+        MP.Send(MSGID_ON_REGIST, (uint32_t)vd.state);
+      }else{
+        MPLog("Failed to save MFCC\n");
+        MP.Send(MSGID_ON_REGIST, RESULT_ERROR); // TODO
+      }
       vd.state = VD_IDLE;
     }
   }

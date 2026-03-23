@@ -18,18 +18,27 @@
 #define BEGIN_STEP1     1   // 初期化ステップ1
 #define BEGIN_STEP2     2   // 初期化ステップ2
 #define RESULT_SUCCESS  0   // 成功
-#define RESULT_ERROR    0x10000;            // エラー
-#define RESULT_TIMEOUT  (RESULT_ERROR + 1)  // タイムアウト
-#define RESULT_CANCEL   (RESULT_ERROR + 2)  // キャンセル
+#define RESULT_ERROR    0x10000             // エラー
+#define RESULT_TIMEOUT  (RESULT_ERROR + 1)  // タイムアウト TODO
+#define RESULT_CANCEL   (RESULT_ERROR + 2)  // キャンセル TODO
+#define MFCC_0          0   // コマンド0のMFCC
+#define MFCC_1          1   // コマンド1のMFCC  
+#define MFCC_2          2   // コマンド2のMFCC
+#define MFCC_3          3   // コマンド3のMFCC
+#define MFCC_4          4   // コマンド4のMFCC
+#define MFCC_END        0x10000 // MFCCのロード終了
 
 // 音声コマンド検出器
 class VoiceDetector
 {
 public:
-    void begin(int16_t *voiceBuffer);
+    void begin(int16_t *voiceBuffer, uint8_t *fileBuffer);
     bool regist();
     int  detect();
     void putMicData(int16_t *data);
+
+    bool loadFile(int command_no);
+    bool saveFile(int command_no);
 
     int state;
     std::queue <int16_t*> micQueue;
