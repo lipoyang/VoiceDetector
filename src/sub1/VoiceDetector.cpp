@@ -177,7 +177,7 @@ void VoiceDetector::begin(int16_t *voiceBuffer, uint8_t *fileBuffer)
 // 音声コマンド登録処理
 // command_no : コマンド番号
 // 戻り値 : true:完了, false:未完了
-bool VoiceDetector::regist(int command_no)
+bool VoiceDetector::regist(uint32_t command_no)
 {
   bool ret =false;
   auto* data = rxMic();
@@ -194,8 +194,8 @@ bool VoiceDetector::regist(int command_no)
   MPLog("Detected! %.2f - %.2f sec (len = %.2f sec)\n", t_begin, t_end, t_len);
 #endif
   // 複数対応 by B.Nishimura
-  if (command_no < 0 || command_no >= MAX_COMMAND){
-    MPLog("VoiceDetector::regist: wrong command_no (%d)\n", command_no);
+  if (command_no >= MAX_COMMAND){
+    MPLog("VoiceDetector::regist: wrong command_no (%ld)\n", command_no);
     return false;
   }
   if (mfcc[command_no] != nullptr){ delete mfcc[command_no]; }
@@ -299,7 +299,7 @@ void VoiceDetector::putMicData(int16_t *data)
 // ファイルからロードしたMFCCデータでMFCCオブジェクトを生成する
 // command_no : コマンド番号
 // 戻り値 : 成否
-bool VoiceDetector::loadFile(int command_no)
+bool VoiceDetector::loadFile(uint32_t command_no)
 {
   mfcc[command_no] = mfccEngine.loadMemory(fileBuffer, MFCC_FILE_SIZE_MAX);
 
@@ -309,7 +309,7 @@ bool VoiceDetector::loadFile(int command_no)
 }
 
 // ファイルにセーブするMFCCデータをMFCCオブジェクトから展開する
-bool VoiceDetector::saveFile(int command_no)
+bool VoiceDetector::saveFile(uint32_t command_no)
 {
   if(mfcc[command_no] == nullptr) return false;
 

@@ -13,29 +13,29 @@ SDClass SD;
 VoiceDetector vd;
 
 // コマンド登録通知
-void onRegist(int commnad_no)
+void onRegist(uint32_t commnad_no)
 {
   if(commnad_no < MAX_COMMAND){
-    printf("Voice Command Registed! (%d)\n", commnad_no);
+    printf("Voice Command Registed! (%ld)\n", commnad_no);
   }else{
-    printf("Voice Command Regist ERROR! (%d)\n", commnad_no);
+    printf("Voice Command Regist ERROR! (%ld)\n", commnad_no);
   }
 }
 
 // コマンド検出通知
-void onDetect(int commnad_no)
+void onDetect(uint32_t commnad_no)
 {
   if(commnad_no < MAX_COMMAND){
-    printf("Voice Command Detected! (%d)\n", commnad_no);
+    printf("Voice Command Detected! (%ld)\n", commnad_no);
   }else{
-    printf("Voice Command Detect ERROR! (%d)\n", commnad_no);
+    printf("Voice Command Detect ERROR! (%ld)\n", commnad_no);
   }
 }
 
 // エラー通知
-void onError(int error_no)
+void onError(uint32_t error_no)
 {
-  printf("VoiceDetector ERROR! (%d)\n", error_no);
+  printf("VoiceDetector ERROR! (%ld)\n", error_no);
 }
 
 // 初期化

@@ -86,7 +86,7 @@ void setup()
     } while(1);
 
     if(mfcc_no == MFCC_END){
-      MPLog("MFCC load completed\n");
+      // MPLog("MFCC load completed\n");
       MP.Send(MSGID_RES_LOAD, mfcc_no, MAINCORE_ID);
       break;
     }

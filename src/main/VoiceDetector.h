@@ -1,4 +1,5 @@
 #pragma once
+#include <stdint.h>
 
 // 状態
 #define VD_IDLE     -1  // 待機
@@ -27,19 +28,19 @@ class VoiceDetector
 public:
     void begin();
     void loop();
-    void regist(int command_no);
+    void regist(uint32_t command_no);
     void detect();
     void cancel();
 
     bool isIdle() {return (state == VD_IDLE);}
 
-    void (*onRegist)(int commnad_no) = nullptr;
-    void (*onDetect)(int commnad_no) = nullptr;
-    void (*onError)(int error_no) = nullptr;
+    void (*onRegist)(uint32_t commnad_no) = nullptr;
+    void (*onDetect)(uint32_t commnad_no) = nullptr;
+    void (*onError)(uint32_t error_no) = nullptr;
 
 private:
     int state;
 
-    int loadFile(int command_no);
-    int saveFile(int command_no);
+    int loadFile(uint32_t command_no);
+    int saveFile(uint32_t command_no);
 };

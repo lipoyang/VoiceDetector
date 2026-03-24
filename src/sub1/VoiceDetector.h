@@ -28,12 +28,12 @@ class VoiceDetector
 {
 public:
     void begin(int16_t *voiceBuffer, uint8_t *fileBuffer);
-    bool regist(int command_no);
+    bool regist(uint32_t command_no);
     int  detect();
     void putMicData(int16_t *data);
 
-    bool loadFile(int command_no);
-    bool saveFile(int command_no);
+    bool loadFile(uint32_t command_no);
+    bool saveFile(uint32_t command_no);
 
     int state;
     std::queue <int16_t*> micQueue;

@@ -6,7 +6,7 @@
 #include "VoiceDetector.h"
 
 // 音声コマンドMFCCデータファイルのパス (書式付き)
-#define MFCC_FILE_PATH "/mnt/sd0/voice%d.bin"
+#define MFCC_FILE_PATH "/mnt/sd0/voice%ld.bin"
 
 // オーディオ
 AudioClass *theAudio;
@@ -197,13 +197,13 @@ void VoiceDetector::loop()
 
 // 音声コマンド登録開始
 // command_no : コマンド番号 (0,1,2,3,4)
-void VoiceDetector::regist(int command_no)
+void VoiceDetector::regist(uint32_t command_no)
 {
-    if(command_no < 0 || command_no >= MAX_COMMAND){
-        printf("VoiceDetector::regist() : Wrong command_no (%d)\n", command_no);
+    if(command_no >= MAX_COMMAND){
+        printf("VoiceDetector::regist() : Wrong command_no (%ld)\n", command_no);
         return;
     }
-    MP.Send(MSGID_REQ_REGIST, (uint32_t)command_no, SUBCORE_VD);
+    MP.Send(MSGID_REQ_REGIST, command_no, SUBCORE_VD);
 
     frame_filled = 0;
     frame_index = 0;
@@ -236,7 +236,7 @@ void VoiceDetector::cancel()
 // 音声コマンドのMFCCデータファイルをロードする。
 // command_no : コマンド番号 (0,1,2,3,4)
 // 戻り値 : 0:成功 / 0以外:失敗
-int VoiceDetector::loadFile(int command_no)
+int VoiceDetector::loadFile(uint32_t command_no)
 {
     char path[32];
     sprintf(path, MFCC_FILE_PATH, command_no);
@@ -284,7 +284,7 @@ int VoiceDetector::loadFile(int command_no)
 // 音声コマンドのMFCCデータファイルをセーブする。
 // command_no : コマンド番号 (0,1,2,3,4)
 // 戻り値 : 0:成功 / 0以外:失敗
-int VoiceDetector::saveFile(int command_no)
+int VoiceDetector::saveFile(uint32_t command_no)
 {
     char path[32];
     sprintf(path, MFCC_FILE_PATH, command_no);
