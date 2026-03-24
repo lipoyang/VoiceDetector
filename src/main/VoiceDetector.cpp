@@ -62,7 +62,7 @@ void VoiceDetector::begin()
     // サブコア起動
     int ret = MP.begin(SUBCORE_VD);
     if (ret < 0) {
-        Serial.printf("VoiceDetector: MP.begin error = %d\n", ret);
+        printf("VoiceDetector: MP.begin error = %d\n", ret);
     }
     // サブコアの起動完了待ち
     MP.RecvTimeout(MP_RECV_BLOCKING);
@@ -70,7 +70,7 @@ void VoiceDetector::begin()
     uint32_t dummy = 0;
     MP.Recv(&msgid, &dummy, SUBCORE_VD);
     if (msgid != MSGID_BEGUN) {
-        Serial.printf("VoiceDetector: MP.Recv error: no BEGUN message (%d)\n", msgid);
+        printf("VoiceDetector: MP.Recv error: no BEGUN message (%d)\n", msgid);
     }
 
     // メモリ確保
@@ -95,11 +95,12 @@ void VoiceDetector::begin()
             uint32_t msgdata = RESULT_ERROR;
             MP.Recv(&msgid, &msgdata, SUBCORE_VD);
             if (msgid != MSGID_RES_LOAD || msgdata != mfcc_no) {
-                Serial.printf("VoiceDetector: MP.Recv error: MFCC load (%d %lu)\n", msgid, msgdata);
+                printf("VoiceDetector: MP.Recv error: MFCC load (%d %lu)\n", msgid, msgdata);
             }
         }
     }
-    printf("No more MFCC files\n");
+    //printf("No more MFCC files\n");
+    
     // MFCCロード終了要求
     uint32_t mfcc_no = MFCC_END;
     MP.Send(MSGID_REQ_LOAD, mfcc_no, SUBCORE_VD);
@@ -107,9 +108,9 @@ void VoiceDetector::begin()
     uint32_t msgdata = RESULT_ERROR;
     MP.Recv(&msgid, &msgdata, SUBCORE_VD);
     if (msgid != MSGID_RES_LOAD || msgdata != MFCC_END) {
-        Serial.printf("VoiceDetector: MP.Recv error: MFCC final (%d %lu)\n", msgid, msgdata);
+        printf("VoiceDetector: MP.Recv error: MFCC final (%d %lu)\n", msgid, msgdata);
     }
-    printf("MFCC initialized\n");
+    //printf("MFCC initialized\n");
 
     // 受信をポーリングに変更
     MP.RecvTimeout(MP_RECV_POLLING);
@@ -126,7 +127,7 @@ void VoiceDetector::loop()
     int ret = MP.Recv(&msgid, &msgdata, SUBCORE_VD);
     if(ret < 0) {
         if(ret != -EAGAIN){
-            Serial.printf("VoiceDetector: MP.Recv error %d\n", ret);
+            printf("VoiceDetector: MP.Recv error %d\n", ret);
             return;
         }
     }else{
@@ -150,7 +151,7 @@ void VoiceDetector::loop()
             state = VD_IDLE;
             break;
         default:
-            Serial.printf("VoiceDetector: unknown msgid %d\n", msgid);
+            printf("VoiceDetector: unknown msgid %d\n", msgid);
             theAudio->stopRecorder();
             state = VD_IDLE;
             break;
@@ -232,7 +233,7 @@ int VoiceDetector::loadFile(uint32_t command_no)
 
     auto* file = fopen(path, "rb");
     if (file == NULL) {
-        printf("%s not found\n", path);
+        // printf("%s not found\n", path);
         return -1;
     }
 

@@ -75,16 +75,16 @@ void loop()
 
     // 0-4 : コマンド登録
     if (num >= VD_REGIST0 && num <= VD_REGIST4) {
-      printf("Regist Voice Command (%d)\n", num);
+      printf("\nRegist Voice Command (%d)\n", num);
       vd.regist(num);
     }
     // 5 : コマンド検出
     else if (num == VD_DETECT) {
-      printf("Compare Wake Word\n");
+      printf("\nCompare Wake Word\n");
       vd.detect();
     }
     else {
-        printf("Wrong Command! (%c)\n", c);
+        printf("\nWrong Command! (%c)\n", c);
     }
     printf("\n");
   }else{

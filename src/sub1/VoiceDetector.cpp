@@ -263,8 +263,10 @@ int VoiceDetector::detect()
       {
         const auto dist = simplevox::calcDTW(*mfcc[i], *feature);
 
-        bool pass = (dist < 180);  // 180未満で一致と判定, しきい値は要調整
+        bool pass = (dist < 200);  // 200未満で一致と判定, しきい値は要調整
+#if defined(WAV_FILE_DEBUG) || defined(MIC_DEBUG)
         MPLog("Dist[%d]: %6lu, %c\n", i, dist, (pass ? '!': '?') );
+#endif
         if (pass){
           command_no = i;
           break;
