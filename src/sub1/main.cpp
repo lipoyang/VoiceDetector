@@ -19,8 +19,8 @@ const int8_t MSGID_MIC_DATA     = 6;  // M->S マイク音声データ通知
 const int8_t MSGID_ON_REGIST    = 7;  // S->M コマンド登録通知
 const int8_t MSGID_ON_DETECT    = 8;  // S->M コマンド検出通知
 const int8_t MSGID_ON_ERROR     = 9;  // S->M エラー通知
-const int8_t MSGID_LOAD_MFCC    = 10; // M->S MFCCデータのロード
-//const int8_t MSGID_SAVE_MFCC    = 11; // S->M MFCCデータのセーブ 
+const int8_t MSGID_REQ_LOAD     = 10; // M->S MFCCデータのロード要求
+const int8_t MSGID_RES_LOAD     = 11; // S->M MFCCデータのロード応答 
 
 // 音声コマンド検出器
 VoiceDetector vd;
@@ -49,8 +49,9 @@ void setup()
     errorLoop(2);
   }
 
-  // 初期化完了をメインコアに知らせる(1)
-  MP.Send(MSGID_BEGUN, BEGIN_STEP1, MAINCORE_ID);
+  // 初期化完了をメインコアに知らせる
+  uint32_t dummy = 0;
+  MP.Send(MSGID_BEGUN, dummy, MAINCORE_ID);
 
   // 共有メモリを取得する
   MP.RecvTimeout(MP_RECV_BLOCKING);
@@ -73,34 +74,33 @@ void setup()
   vd.state = VD_IDLE;
 
   // MFCCデータのロード
-  uint32_t msgdata2;
+  uint32_t mfcc_no;
   while(1){
     do {
-      MP.Recv(&msgid, &msgdata2);
-      if(msgid == MSGID_LOAD_MFCC){
+      MP.Recv(&msgid, &mfcc_no);
+      if(msgid == MSGID_REQ_LOAD){
         break;
       }else{
         MPLog("Unexpected message ID %d\n", msgid);
       }
     } while(1);
 
-    if(msgdata2 == MFCC_END){
+    if(mfcc_no == MFCC_END){
       MPLog("MFCC load completed\n");
+      MP.Send(MSGID_RES_LOAD, mfcc_no, MAINCORE_ID);
       break;
     }
-    else if(msgdata2 >= MFCC_0 && msgdata2 <= MFCC_4){
-      bool result = vd.loadFile(MFCC_0); // TODO
+    else if(mfcc_no >= MFCC_0 && mfcc_no <= MFCC_4){
+      bool result = vd.loadFile(mfcc_no);
       if(result == false){
-        MPLog("Failed to load MFCC[%ld]\n", msgdata2);
+        MPLog("Failed to load MFCC[%ld]\n", mfcc_no);
       }
     }
     else{
-      MPLog("Unexpected message DATA (%ld)\n", msgdata2);
+      MPLog("Unexpected message DATA (%ld)\n", mfcc_no);
     }
   }
-
-  // 初期化完了をメインコアに知らせる(2)
-  MP.Send(MSGID_BEGUN, BEGIN_STEP2, MAINCORE_ID);
+  
   MP.RecvTimeout(MP_RECV_POLLING);
 }
 

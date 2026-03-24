@@ -24,8 +24,8 @@ const int8_t MSGID_MIC_DATA     = 6;  // M->S マイク音声データ通知
 const int8_t MSGID_ON_REGIST    = 7;  // S->M コマンド登録通知
 const int8_t MSGID_ON_DETECT    = 8;  // S->M コマンド検出通知
 const int8_t MSGID_ON_ERROR     = 9;  // S->M エラー通知
-const int8_t MSGID_LOAD_MFCC    = 10; // M->S MFCCデータのロード
-// const int8_t MSGID_SAVE_MFCC    = 11; // S->M MFCCデータのセーブ 
+const int8_t MSGID_REQ_LOAD     = 10; // M->S MFCCデータのロード要求
+const int8_t MSGID_RES_LOAD     = 11; // S->M MFCCデータのロード応答 
 
 // 定数
 const int SAMPLE_RATE    = 16000;   // サンプリング周波数 16kHz
@@ -69,10 +69,10 @@ void VoiceDetector::begin()
     // サブコアの起動完了待ち
     MP.RecvTimeout(MP_RECV_BLOCKING);
     int8_t msgid;
-    uint32_t msgdata = 0;
-    MP.Recv(&msgid, &msgdata, SUBCORE_VD);
-    if (msgid != MSGID_BEGUN || msgdata != BEGIN_STEP1) {
-        Serial.printf("VoiceDetector: MP.Recv error: no BEGUN message %d %lu\n", msgid, msgdata);
+    uint32_t dummy = 0;
+    MP.Recv(&msgid, &dummy, SUBCORE_VD);
+    if (msgid != MSGID_BEGUN) {
+        Serial.printf("VoiceDetector: MP.Recv error: no BEGUN message (%d)\n", msgid);
     }
 
     // メモリ確保
@@ -83,26 +83,35 @@ void VoiceDetector::begin()
     MP.Send(MSGID_SHARE_MEMORY, voiceBuffer, SUBCORE_VD);
 
     // 音声コマンドのMFCCデータのロード
-    uint32_t command_no = MFCC_0; // TODO
-    ret = loadFile(command_no); 
-    if(ret != 0){
-        if(ret != -1){
-            printf("MFCC [%ld] load failed (%d)\n", command_no, ret);
+    for(uint32_t mfcc_no = MFCC_0; mfcc_no <= MFCC_4; mfcc_no++){
+        ret = loadFile(mfcc_no); 
+        if(ret != 0){
+            if(ret != -1){
+                printf("MFCC [%ld] load failed (%d)\n", mfcc_no, ret);
+            }
+        }else{
+            // ロード要求
+            printf("MFCC [%d] loading...\n", ret);
+            MP.Send(MSGID_REQ_LOAD, mfcc_no, SUBCORE_VD);
+            // ロード応答待ち
+            uint32_t msgdata = RESULT_ERROR;
+            MP.Recv(&msgid, &msgdata, SUBCORE_VD);
+            if (msgid != MSGID_RES_LOAD || msgdata != mfcc_no) {
+                Serial.printf("VoiceDetector: MP.Recv error: MFCC load (%d %lu)\n", msgid, msgdata);
+            }
         }
-    }else{
-        printf("MFCC [%d] loading...\n", ret);
-        MP.Send(MSGID_LOAD_MFCC, command_no, SUBCORE_VD);
     }
-    delay(1);
-    printf("MFCC load completed\n");
-    command_no = MFCC_END;
-    MP.Send(MSGID_LOAD_MFCC, command_no, SUBCORE_VD);
-
-    // サブコアのVoiceDetectorの初期化完了待ち
+    // MFCCロード終了要求
+    uint32_t mfcc_no = MFCC_END;
+    uint32_t msgdata = RESULT_ERROR;
+    MP.Send(MSGID_REQ_LOAD, mfcc_no, SUBCORE_VD);
+    // 応答待ち
     MP.Recv(&msgid, &msgdata, SUBCORE_VD);
-    if (msgid != MSGID_BEGUN || msgdata != BEGIN_STEP2) {
-        Serial.printf("VoiceDetector: MP.Recv error: no BEGUN message %d %lu\n", msgid, msgdata);
+    if (msgid != MSGID_BEGUN || msgdata != MFCC_END) {
+        Serial.printf("VoiceDetector: MP.Recv error: MFCC load (%d %lu)\n", msgid, msgdata);
     }
+    printf("MFCC initialized\n");
+
     // 受信をポーリングに変更
     MP.RecvTimeout(MP_RECV_POLLING);
 

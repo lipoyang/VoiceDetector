@@ -15,8 +15,6 @@
 #define MAX_COMMAND  5 
 
 // メッセージコード
-#define BEGIN_STEP1     1   // 初期化ステップ1
-#define BEGIN_STEP2     2   // 初期化ステップ2
 #define RESULT_SUCCESS  0   // 成功
 #define RESULT_ERROR    0x10000             // エラー
 #define RESULT_TIMEOUT  (RESULT_ERROR + 1)  // タイムアウト TODO
