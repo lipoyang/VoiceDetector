@@ -27,15 +27,11 @@ void onDetect(uint32_t commnad_no)
 {
   if(commnad_no < MAX_COMMAND){
     printf("Voice Command Detected! (%ld)\n", commnad_no);
+  }else if(commnad_no == MFCC_MISMATCH){
+    printf("Voice Command mismatch\n");
   }else{
     printf("Voice Command Detect ERROR! (%ld)\n", commnad_no);
   }
-}
-
-// エラー通知
-void onError(uint32_t error_no)
-{
-  printf("VoiceDetector ERROR! (%ld)\n", error_no);
 }
 
 // 初期化
@@ -58,7 +54,6 @@ void setup()
   // 音声コマンド検出器の初期化
   vd.onRegist = onRegist;
   vd.onDetect = onDetect;
-  vd.onError = onError;
   vd.begin();
 }
 

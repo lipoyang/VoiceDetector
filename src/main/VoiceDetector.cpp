@@ -23,9 +23,8 @@ const int8_t MSGID_REQ_CANCEL   = 5;  // M->S コマンド登録/検出キャン
 const int8_t MSGID_MIC_DATA     = 6;  // M->S マイク音声データ通知
 const int8_t MSGID_ON_REGIST    = 7;  // S->M コマンド登録通知
 const int8_t MSGID_ON_DETECT    = 8;  // S->M コマンド検出通知
-const int8_t MSGID_ON_ERROR     = 9;  // S->M エラー通知
-const int8_t MSGID_REQ_LOAD     = 10; // M->S MFCCデータのロード要求
-const int8_t MSGID_RES_LOAD     = 11; // S->M MFCCデータのロード応答 
+const int8_t MSGID_REQ_LOAD     = 9;  // M->S MFCCデータのロード要求
+const int8_t MSGID_RES_LOAD     = 10; // S->M MFCCデータのロード応答 
 
 // 定数
 const int SAMPLE_RATE    = 16000;   // サンプリング周波数 16kHz
@@ -103,9 +102,9 @@ void VoiceDetector::begin()
     printf("No more MFCC files\n");
     // MFCCロード終了要求
     uint32_t mfcc_no = MFCC_END;
-    uint32_t msgdata = RESULT_ERROR;
     MP.Send(MSGID_REQ_LOAD, mfcc_no, SUBCORE_VD);
     // 応答待ち
+    uint32_t msgdata = RESULT_ERROR;
     MP.Recv(&msgid, &msgdata, SUBCORE_VD);
     if (msgid != MSGID_RES_LOAD || msgdata != MFCC_END) {
         Serial.printf("VoiceDetector: MP.Recv error: MFCC final (%d %lu)\n", msgid, msgdata);
@@ -135,14 +134,11 @@ void VoiceDetector::loop()
         case MSGID_ON_REGIST:
             theAudio->stopRecorder();
             if(msgdata <= MFCC_4){
-                saveFile(msgdata);
-                if (onRegist) {
-                    onRegist(msgdata);
-                }
-            }else{
-                if (onError) {
-                    onError(msgdata);
-                }   
+                int ret = saveFile(msgdata);
+                if(ret != 0) msgdata = RESULT_ERROR;
+            }
+            if (onRegist) {
+                onRegist(msgdata);
             }
             state = VD_IDLE;
             break;
@@ -150,13 +146,6 @@ void VoiceDetector::loop()
             theAudio->stopRecorder();
             if (onDetect) {
                 onDetect(msgdata);
-            }
-            state = VD_IDLE;
-            break;
-        case MSGID_ON_ERROR:
-            theAudio->stopRecorder();
-            if (onError) {
-                onError(msgdata);
             }
             state = VD_IDLE;
             break;

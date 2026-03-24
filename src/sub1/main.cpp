@@ -18,9 +18,8 @@ const int8_t MSGID_REQ_CANCEL   = 5;  // M->S コマンド登録/検出キャン
 const int8_t MSGID_MIC_DATA     = 6;  // M->S マイク音声データ通知
 const int8_t MSGID_ON_REGIST    = 7;  // S->M コマンド登録通知
 const int8_t MSGID_ON_DETECT    = 8;  // S->M コマンド検出通知
-const int8_t MSGID_ON_ERROR     = 9;  // S->M エラー通知
-const int8_t MSGID_REQ_LOAD     = 10; // M->S MFCCデータのロード要求
-const int8_t MSGID_RES_LOAD     = 11; // S->M MFCCデータのロード応答 
+const int8_t MSGID_REQ_LOAD     = 9;  // M->S MFCCデータのロード要求
+const int8_t MSGID_RES_LOAD     = 10; // S->M MFCCデータのロード応答 
 
 // 音声コマンド検出器
 VoiceDetector vd;
@@ -153,10 +152,10 @@ void loop()
     if(ret == true){
       ret = vd.saveFile(vd.state);
       if(ret == true){
-        MP.Send(MSGID_ON_REGIST, (uint32_t)vd.state);
+        MP.Send(MSGID_ON_REGIST, (uint32_t)vd.state, MAINCORE_ID);
       }else{
         MPLog("Failed to save MFCC\n");
-        MP.Send(MSGID_ON_REGIST, RESULT_ERROR);
+        MP.Send(MSGID_ON_REGIST, RESULT_ERROR, MAINCORE_ID);
       }
       vd.state = VD_IDLE;
     }
@@ -165,7 +164,7 @@ void loop()
   else if(vd.state == VD_DETECT){
     int command = vd.detect();
     if(command >= 0){
-      MP.Send(MSGID_ON_DETECT, command);
+      MP.Send(MSGID_ON_DETECT, command, MAINCORE_ID);
       vd.state = VD_IDLE;
     }
   }

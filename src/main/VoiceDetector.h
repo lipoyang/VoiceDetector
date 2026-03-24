@@ -20,7 +20,8 @@
 #define MFCC_2          2   // コマンド2のMFCC
 #define MFCC_3          3   // コマンド3のMFCC
 #define MFCC_4          4   // コマンド4のMFCC
-#define MFCC_END        0x10000 // MFCCのロード終了
+#define MFCC_END        5   // MFCCのロード終了
+#define MFCC_MISMATCH   6   // MFCC不一致
 
 // 音声コマンド検出器
 class VoiceDetector
@@ -36,7 +37,6 @@ public:
 
     void (*onRegist)(uint32_t commnad_no) = nullptr;
     void (*onDetect)(uint32_t commnad_no) = nullptr;
-    void (*onError)(uint32_t error_no) = nullptr;
 
 private:
     int state;

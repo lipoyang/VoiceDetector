@@ -194,10 +194,6 @@ bool VoiceDetector::regist(uint32_t command_no)
   MPLog("Detected! %.2f - %.2f sec (len = %.2f sec)\n", t_begin, t_end, t_len);
 #endif
   // 複数対応 by B.Nishimura
-  if (command_no >= MAX_COMMAND){
-    MPLog("VoiceDetector::regist: wrong command_no (%ld)\n", command_no);
-    return false;
-  }
   if (mfcc[command_no] != nullptr){ delete mfcc[command_no]; }
   mfcc[command_no] = mfccEngine.create(rawAudio, length);
 
@@ -215,7 +211,7 @@ bool VoiceDetector::regist(uint32_t command_no)
 }
 
 // 音声コマンド検出処理
-// 戻り値 : -1:未検出, 0-4:コマンド検出
+// 戻り値 : -1:未検出, 0-4:コマンド検出, MFCC_MISMATCH:不一致
 int VoiceDetector::detect()
 {
   auto* data = rxMic();
@@ -278,7 +274,11 @@ int VoiceDetector::detect()
     raw_reset();
     mfccFrameCount = 0;
     vadEngine.reset();
-    if(command_no >= 0) return command_no;
+    if(command_no >= 0){
+      return command_no;
+    }else{
+      return MFCC_MISMATCH;
+    }
   }    
   return -1;
 }
