@@ -94,8 +94,7 @@ void setup()
       bool result = vd.loadFile(mfcc_no);
       if(result == false){
         MPLog("Failed to load MFCC[%ld]\n", mfcc_no);
-        uint32_t error = RESULT_ERROR;
-        MP.Send(MSGID_RES_LOAD, error, MAINCORE_ID);
+        MP.Send(MSGID_RES_LOAD, RESULT_ERROR, MAINCORE_ID);
       }else{
         MP.Send(MSGID_RES_LOAD, mfcc_no, MAINCORE_ID);
       }
@@ -124,8 +123,8 @@ void loop()
     switch(ret){
       // コマンド登録開始要求
       case MSGID_REQ_REGIST:
-        if(msgdata < MAX_COMMAND){
-          vd.state = VD_REGIST0 + msgdata;
+        if(msgdata <= VD_REGIST4){
+          vd.state = msgdata;
         }else{
           MPLog("Wrong command no (%d)\n", msgdata);
         }
@@ -157,7 +156,7 @@ void loop()
         MP.Send(MSGID_ON_REGIST, (uint32_t)vd.state);
       }else{
         MPLog("Failed to save MFCC\n");
-        MP.Send(MSGID_ON_REGIST, RESULT_ERROR); // TODO
+        MP.Send(MSGID_ON_REGIST, RESULT_ERROR);
       }
       vd.state = VD_IDLE;
     }

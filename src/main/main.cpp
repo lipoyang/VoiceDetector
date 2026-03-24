@@ -79,12 +79,12 @@ void loop()
     int num = c - '0';
 
     // 0-4 : コマンド登録
-    if (num >= 0 && num < MAX_COMMAND) {
+    if (num >= VD_REGIST0 && num <= VD_REGIST4) {
       printf("Regist Voice Command (%d)\n", num);
       vd.regist(num);
     }
     // 5 : コマンド検出
-    else if (num == 5) {
+    else if (num == VD_DETECT) {
       printf("Compare Wake Word\n");
       vd.detect();
     }

@@ -224,19 +224,6 @@ int VoiceDetector::detect()
   }
   nsInst.process(data, data);
 
-  // 複数対応 by B.Nishimura
-  bool hasMFCC = false;
-  for(int i = 0; i < MAX_COMMAND; i++){
-    if(mfcc[i] != nullptr){
-      hasMFCC = true;
-      break;
-    }
-  }
-  if (hasMFCC == false) {
-      MPLog("No MFCC data\n"); // TODO
-      return -1; 
-  }
-
   static int mfccFrameCount = 0;
   const auto state = vadEngine.process(data);
   const int vadFrameLength = vadEngine.config().frame_length();

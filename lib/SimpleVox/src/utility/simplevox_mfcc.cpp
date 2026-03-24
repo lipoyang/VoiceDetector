@@ -486,7 +486,7 @@ namespace simplevox
     MfccFeature *MfccEngine::loadMemory(uint8_t *fileBuffer, const uint32_t bufferSize)
     {
         uint8_t tag = fileBuffer[0];
-        tag = tag; // TODO 
+        tag = tag; // 不使用
 
         const int32_t size = *((int32_t*)&fileBuffer[1]);
         const int32_t coef_num = *((int32_t*)&fileBuffer[5]);

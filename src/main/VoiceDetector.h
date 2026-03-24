@@ -13,7 +13,7 @@
 #define MAX_COMMAND  5 
 
 // メッセージコード
-#define RESULT_ERROR    0x10000;            // エラー
+#define RESULT_ERROR    0x10000 // エラー
 #define MFCC_0          0   // コマンド0のMFCC
 #define MFCC_1          1   // コマンド1のMFCC  
 #define MFCC_2          2   // コマンド2のMFCC

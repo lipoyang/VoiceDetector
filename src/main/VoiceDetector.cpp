@@ -37,7 +37,6 @@ const size_t VOICE_BUFF_SIZE = SAMPLE_RATE * VOICE_BUFF_SEC * sizeof(int16_t);
 const size_t VAD_BUFF_SIZE   = SAMPLE_RATE * VAD_FRAME_MSEC / 1000 * sizeof(int16_t);
 const size_t MFCC_FILE_SIZE_MAX = 4096;
 
-// TODO メンバへ　インデックスは初期化、クリアも
 int16_t   *voiceBuffer; // 音声コマンド登録用バッファ
 int16_t   *micBuffer1;  // マイク入力用バッファ1 (マイクから)
 int16_t   *micBuffer2;  // マイク入力用バッファ2 (サブコアへ)
@@ -206,6 +205,8 @@ void VoiceDetector::regist(int command_no)
     }
     MP.Send(MSGID_REQ_REGIST, (uint32_t)command_no, SUBCORE_VD);
 
+    frame_filled = 0;
+    frame_index = 0;
     theAudio->startRecorder();
     state = VD_REGIST0 + command_no;
 }
@@ -216,6 +217,8 @@ void VoiceDetector::detect()
     uint32_t dummy = 0;
     MP.Send(MSGID_REQ_DETECT, dummy, SUBCORE_VD);
 
+    frame_filled = 0;
+    frame_index = 0;
     theAudio->startRecorder();
     state = VD_DETECT;
 }
