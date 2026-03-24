@@ -33,7 +33,7 @@ uint8_t* fileBuffer;
 NoiseSuppressor nsInst;
 simplevox::VadEngine vadEngine;
 simplevox::MfccEngine mfccEngine;
-simplevox::MfccFeature* mfcc = nullptr;
+simplevox::MfccFeature* mfcc[MAX_COMMAND]; // 複数対応 by B.Nishimura
 
 /**
  * VAD -> Buffer -> MFCCの流れで逐次的にMFCCの算出を行う。
@@ -127,6 +127,8 @@ float* feature_get(int number) { return &features[number * mfccCoefNum]; }
 // voiceBuffer : 音声バッファ用メモリ
 void VoiceDetector::begin(int16_t *voiceBuffer, uint8_t *fileBuffer)
 {
+  for(int i = 0; i < MAX_COMMAND; i++) mfcc[i] = nullptr; // 複数対応 by B.Nishimura
+
   auto vadConfig = vadEngine.config();
   vadConfig.sample_rate = kSampleRate;
   vadConfig.decision_time_ms = 50; // 50msec by B.Nishimura
@@ -173,8 +175,9 @@ void VoiceDetector::begin(int16_t *voiceBuffer, uint8_t *fileBuffer)
 }
 
 // 音声コマンド登録処理
+// command_no : コマンド番号
 // 戻り値 : true:完了, false:未完了
-bool VoiceDetector::regist()
+bool VoiceDetector::regist(int command_no)
 {
   bool ret =false;
   auto* data = rxMic();
@@ -190,9 +193,13 @@ bool VoiceDetector::regist()
   float t_begin = t_end - t_len;
   MPLog("Detected! %.2f - %.2f sec (len = %.2f sec)\n", t_begin, t_end, t_len);
 #endif
-
-  if (mfcc != nullptr){ delete mfcc; }
-  mfcc = mfccEngine.create(rawAudio, length);
+  // 複数対応 by B.Nishimura
+  if (command_no < 0 || command_no >= MAX_COMMAND){
+    MPLog("VoiceDetector::regist: wrong command_no (%d)\n", command_no);
+    return false;
+  }
+  if (mfcc[command_no] != nullptr){ delete mfcc[command_no]; }
+  mfcc[command_no] = mfccEngine.create(rawAudio, length);
 
 #if 0 // (by Bizan Nishimura)
   if (mfcc)
@@ -211,16 +218,25 @@ bool VoiceDetector::regist()
 // 戻り値 : -1:未検出, 0-4:コマンド検出
 int VoiceDetector::detect()
 {
-  bool ret = false;
   auto* data = rxMic();
   if (data == nullptr) {
     return -1; 
   }
   nsInst.process(data, data);
 
-  if (mfcc == nullptr) {
-     return -1; 
+  // 複数対応 by B.Nishimura
+  bool hasMFCC = false;
+  for(int i = 0; i < MAX_COMMAND; i++){
+    if(mfcc[i] != nullptr){
+      hasMFCC = true;
+      break;
+    }
   }
+  if (hasMFCC == false) {
+      MPLog("No MFCC data\n"); // TODO
+      return -1; 
+  }
+
   static int mfccFrameCount = 0;
   const auto state = vadEngine.process(data);
   const int vadFrameLength = vadEngine.config().frame_length();
@@ -256,16 +272,28 @@ int VoiceDetector::detect()
       MPLog("Comparing... %.2f sec\n", t_end);
 #endif
     std::unique_ptr<simplevox::MfccFeature> feature(mfccEngine.create(features, mfccFrameCount, mfccCoefNum));
-    const auto dist = simplevox::calcDTW(*mfcc, *feature);
+    
+    // 複数対応 by B.Nishimura
+    int command_no = -1;
+    for(int i = 0; i < MAX_COMMAND; i++){
+      if(mfcc[i] != nullptr)
+      {
+        const auto dist = simplevox::calcDTW(*mfcc[i], *feature);
 
-    char pass = (dist < 180) ? '!': '?';  // 180未満で一致と判定, しきい値は要調整
-    MPLog("Dist: %6lu, %c\n", dist, pass);
+        bool pass = (dist < 180);  // 180未満で一致と判定, しきい値は要調整
+        MPLog("Dist[%d]: %6lu, %c\n", i, dist, (pass ? '!': '?') );
+        if (pass){
+          command_no = i;
+          break;
+        }
+      }
+    }
     raw_reset();
     mfccFrameCount = 0;
     vadEngine.reset();
-    if(dist < 180) ret = true;
+    if(command_no >= 0) return command_no;
   }    
-  return (ret ? 0 : -1); // TODO
+  return -1;
 }
 
 // マイク音声データを追加
@@ -286,9 +314,9 @@ void VoiceDetector::putMicData(int16_t *data)
 // 戻り値 : 成否
 bool VoiceDetector::loadFile(int command_no)
 {
-  mfcc = mfccEngine.loadMemory(fileBuffer, MFCC_FILE_SIZE_MAX);
+  mfcc[command_no] = mfccEngine.loadMemory(fileBuffer, MFCC_FILE_SIZE_MAX);
 
-  if(mfcc == nullptr) return false;
+  if(mfcc[command_no] == nullptr) return false;
 
   return true;
 }
@@ -296,9 +324,9 @@ bool VoiceDetector::loadFile(int command_no)
 // ファイルにセーブするMFCCデータをMFCCオブジェクトから展開する
 bool VoiceDetector::saveFile(int command_no)
 {
-  if(mfcc == nullptr) return false;
+  if(mfcc[command_no] == nullptr) return false;
 
-  bool ret = mfccEngine.saveMemory(fileBuffer,  MFCC_FILE_SIZE_MAX, *mfcc);
+  bool ret = mfccEngine.saveMemory(fileBuffer,  MFCC_FILE_SIZE_MAX, *mfcc[command_no]);
   
   return ret;
 }

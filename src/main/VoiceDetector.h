@@ -13,10 +13,7 @@
 #define MAX_COMMAND  5 
 
 // メッセージコード
-#define RESULT_SUCCESS  0   // 成功
 #define RESULT_ERROR    0x10000;            // エラー
-#define RESULT_TIMEOUT  (RESULT_ERROR + 1)  // タイムアウト
-#define RESULT_CANCEL   (RESULT_ERROR + 2)  // キャンセル
 #define MFCC_0          0   // コマンド0のMFCC
 #define MFCC_1          1   // コマンド1のMFCC  
 #define MFCC_2          2   // コマンド2のMFCC
@@ -36,7 +33,7 @@ public:
 
     bool isIdle() {return (state == VD_IDLE);}
 
-    void (*onRegist)(int result) = nullptr;
+    void (*onRegist)(int commnad_no) = nullptr;
     void (*onDetect)(int commnad_no) = nullptr;
     void (*onError)(int error_no) = nullptr;
 

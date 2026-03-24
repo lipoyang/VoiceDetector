@@ -91,7 +91,7 @@ void VoiceDetector::begin()
             }
         }else{
             // ロード要求
-            printf("MFCC [%d] loading...\n", ret);
+            printf("MFCC [%ld] loading...\n", mfcc_no);
             MP.Send(MSGID_REQ_LOAD, mfcc_no, SUBCORE_VD);
             // ロード応答待ち
             uint32_t msgdata = RESULT_ERROR;

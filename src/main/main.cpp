@@ -13,12 +13,12 @@ SDClass SD;
 VoiceDetector vd;
 
 // コマンド登録通知
-void onRegist(int result)
+void onRegist(int commnad_no)
 {
-  if(result == RESULT_SUCCESS){
-    printf("Voice Command Regist Completed!\n");
+  if(commnad_no < MAX_COMMAND){
+    printf("Voice Command Registed! (%d)\n", commnad_no);
   }else{
-    printf("Voice Command Regist ERROR! (%d)\n", result);
+    printf("Voice Command Regist ERROR! (%d)\n", commnad_no);
   }
 }
 

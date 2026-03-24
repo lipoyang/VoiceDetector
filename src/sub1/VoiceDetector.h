@@ -31,7 +31,7 @@ class VoiceDetector
 {
 public:
     void begin(int16_t *voiceBuffer, uint8_t *fileBuffer);
-    bool regist();
+    bool regist(int command_no);
     int  detect();
     void putMicData(int16_t *data);
 

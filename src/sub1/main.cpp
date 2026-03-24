@@ -150,7 +150,7 @@ void loop()
   }
   // コマンド登録処理
   if(vd.state >= VD_REGIST0 && vd.state <= VD_REGIST4){
-    bool ret = vd.regist();
+    bool ret = vd.regist(vd.state);
     if(ret == true){
       ret = vd.saveFile(vd.state);
       if(ret == true){
