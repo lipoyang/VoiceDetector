@@ -101,14 +101,15 @@ void VoiceDetector::begin()
             }
         }
     }
+    printf("No more MFCC files\n");
     // MFCCロード終了要求
     uint32_t mfcc_no = MFCC_END;
     uint32_t msgdata = RESULT_ERROR;
     MP.Send(MSGID_REQ_LOAD, mfcc_no, SUBCORE_VD);
     // 応答待ち
     MP.Recv(&msgid, &msgdata, SUBCORE_VD);
-    if (msgid != MSGID_BEGUN || msgdata != MFCC_END) {
-        Serial.printf("VoiceDetector: MP.Recv error: MFCC load (%d %lu)\n", msgid, msgdata);
+    if (msgid != MSGID_RES_LOAD || msgdata != MFCC_END) {
+        Serial.printf("VoiceDetector: MP.Recv error: MFCC final (%d %lu)\n", msgid, msgdata);
     }
     printf("MFCC initialized\n");
 

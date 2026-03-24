@@ -94,6 +94,10 @@ void setup()
       bool result = vd.loadFile(mfcc_no);
       if(result == false){
         MPLog("Failed to load MFCC[%ld]\n", mfcc_no);
+        uint32_t error = RESULT_ERROR;
+        MP.Send(MSGID_RES_LOAD, error, MAINCORE_ID);
+      }else{
+        MP.Send(MSGID_RES_LOAD, mfcc_no, MAINCORE_ID);
       }
     }
     else{
