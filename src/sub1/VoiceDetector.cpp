@@ -67,6 +67,7 @@ int16_t* VoiceDetector::rxMic()
   if(micQueue.empty()){
     return nullptr;
   }else{
+    frameNo++;
     int16_t *data = micQueue.front();
     micQueue.pop();
     return data;
@@ -297,6 +298,13 @@ void VoiceDetector::putMicData(int16_t *data)
 }
 
 // 追加 by Bizan Nishimura
+
+// マイクバッファをクリア
+void VoiceDetector::clear()
+{
+    frameNo = 0;
+    while (micQueue.size()) micQueue.pop();
+}
 
 // ファイルからロードしたMFCCデータでMFCCオブジェクトを生成する
 // command_no : コマンド番号

@@ -123,6 +123,7 @@ void loop()
       // コマンド登録開始要求
       case MSGID_REQ_REGIST:
         if(msgdata <= VD_REGIST4){
+          vd.clear();
           vd.state = msgdata;
         }else{
           MPLog("Wrong command no (%d)\n", msgdata);
@@ -130,6 +131,7 @@ void loop()
         break;
       // コマンド検出開始要求
       case MSGID_REQ_DETECT:
+        vd.clear();
         vd.state = VD_DETECT;
         break;
       // コマンド登録/検出キャンセル

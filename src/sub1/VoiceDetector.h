@@ -32,6 +32,7 @@ public:
     bool regist(uint32_t command_no);
     int  detect();
     void putMicData(int16_t *data);
+    void clear();
 
     bool loadFile(uint32_t command_no);
     bool saveFile(uint32_t command_no);
