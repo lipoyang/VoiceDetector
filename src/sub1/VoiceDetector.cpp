@@ -26,7 +26,7 @@ constexpr int audioLength = kSampleRate * 3;  // 3 seconds
 // constexpr int kRxBufferNum = 3;
 const size_t MFCC_FILE_SIZE_MAX = 4096;
 
-int16_t* rawAudio;
+//int16_t* rawAudio;
 //int16_t* rxBuffer;
 int16_t* rawBuffer;
 uint8_t* fileBuffer;
@@ -141,7 +141,7 @@ void VoiceDetector::begin(int16_t *voiceBuffer, uint8_t *fileBuffer)
   rxBuffer = (int16_t*)malloc(kRxBufferNum * vadConfig.frame_length() * sizeof(*rxBuffer));
 #else
   // メインコアで確保した共有メモリを使用 (by Bizan Nishimura)
-  rawAudio = voiceBuffer;
+  //rawAudio = voiceBuffer;
   ::fileBuffer = fileBuffer;
 #endif  
   raw_init(mfccConfig.frame_length() + vadConfig.frame_length());
@@ -185,7 +185,7 @@ bool VoiceDetector::regist(uint32_t command_no)
   if (data == nullptr) { return ret; }
 
   nsInst.process(data, data);
-
+/*
   int length = vadEngine.detect(rawAudio, audioLength, data);
   if (length <= 0) { return ret; }
 #if defined(WAV_FILE_DEBUG) || defined(MIC_DEBUG)
@@ -194,20 +194,51 @@ bool VoiceDetector::regist(uint32_t command_no)
   float t_begin = t_end - t_len;
   MPLog("Detected! %.2f - %.2f sec (len = %.2f sec)\n", t_begin, t_end, t_len);
 #endif
-  // 複数対応 by B.Nishimura
-  if (mfcc[command_no] != nullptr){ delete mfcc[command_no]; }
-  mfcc[command_no] = mfccEngine.create(rawAudio, length);
-
-#if 0 // (by Bizan Nishimura)
-  if (mfcc)
+*/
+  static int mfccFrameCount = 0;
+  const auto state = vadEngine.process(data);
+  const int vadFrameLength = vadEngine.config().frame_length();
+  const int mfccFrameLength = mfccEngine.config().frame_length();
+  const int mfccHopLength = mfccEngine.config().hop_length();
+  // Silence以上ならrawBufferにデータを追加
+  if (state >= simplevox::VadState::Silence)
   {
-    mfccEngine.saveFile(base_path file_name, *mfcc);
+    raw_pushBack(data, vadFrameLength);
+  }
+  // rawBufferにMFCCのframe_length()以上のデータがある場合はMFCCを算出
+  while (raw_size() >= mfccFrameLength && mfccFrameCount < mfccFrameNum)
+  {
+    // feature_pushBack
+    mfccEngine.calculate(raw_front(), feature_get(mfccFrameCount));
+    mfccFrameCount++;
+    raw_popFront(mfccHopLength);  // hop_length分シフト
+  }
+  // Speech以前(Silence, PreDetection)の場合はmfccBeforeFrameNumを超えた分は取り除く(シフトする)
+  if (state < simplevox::VadState::Speech && mfccFrameCount > mfccBeforeFrameNum)
+  {
+    const int shiftCount = mfccFrameCount - mfccBeforeFrameNum;
+    const int shiftLength = shiftCount * mfccCoefNum;
+    std::copy_n(&features[shiftLength], mfccFrameCount * mfccCoefNum - shiftLength, features);
+    mfccFrameCount -= shiftCount;
+  }
+  // 検出完了もしくは最大フレームに到達した場合は判定終了
+  if (state == simplevox::VadState::Detected
+      || (state >= simplevox::VadState::Speech && mfccFrameNum <= mfccFrameCount))
+  {
+#if defined(WAV_FILE_DEBUG) || defined(MIC_DEBUG)
+      float t_end = (float)frameNo * 0.01f;
+      MPLog("Comparing... %.2f sec\n", t_end);
+#endif
+
+    // 複数対応 by B.Nishimura
+    if (mfcc[command_no] != nullptr){ delete mfcc[command_no]; }
+    mfcc[command_no] = mfccEngine.create(features, mfccFrameCount, mfccCoefNum);
+
+    raw_reset();
+    mfccFrameCount = 0;
+    vadEngine.reset();
     ret = true;
   }
-#else
-  ret = true;
-#endif
-  vadEngine.reset();
   return ret;
 }
 
