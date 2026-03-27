@@ -28,7 +28,7 @@
 class VoiceDetector
 {
 public:
-    void begin(int16_t *voiceBuffer, uint8_t *fileBuffer);
+    void begin(uint8_t *fileBuffer);
     bool regist(uint32_t command_no);
     int  detect();
     void putMicData(int16_t *data);
@@ -42,4 +42,5 @@ public:
 
 private:
     int16_t* rxMic();
+    bool record();
 };

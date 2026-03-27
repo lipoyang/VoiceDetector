@@ -69,7 +69,7 @@ void setup()
   int16_t *voiceBuffer = msgdata;
   const size_t VOICE_BUFF_SIZE = 96000;
   uint8_t *fileBuffer = &((uint8_t*)voiceBuffer)[VOICE_BUFF_SIZE]; // ※ voiceBufferの後に配置 (バッドノウハウ)
-  vd.begin(voiceBuffer, fileBuffer);
+  vd.begin(fileBuffer);
   vd.state = VD_IDLE;
 
   // MFCCデータのロード
