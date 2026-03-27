@@ -22,7 +22,7 @@ int frameNo; // デバッグ用
 
 const int MIC_BUFF_FRAMES = 3;      // マイクバッファのVADフレーム数 3フレーム
 constexpr int kSampleRate = 16000;
-constexpr int audioLength = kSampleRate * 3;  // 3 seconds
+// constexpr int audioLength = kSampleRate * 3;  // 3 seconds
 // constexpr int kRxBufferNum = 3;
 const size_t MFCC_FILE_SIZE_MAX = 4096;
 
@@ -279,7 +279,7 @@ int VoiceDetector::detect()
     raw_reset();
     mfccFrameCount = 0;
     vadEngine.reset();
-    
+
     if(command_no >= 0){
       return command_no;
     }else{
