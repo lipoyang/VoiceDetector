@@ -55,7 +55,7 @@ void VoiceDetector::begin()
     // オーディオ初期化
     theAudio = AudioClass::getInstance();
     theAudio->begin(audio_attention_cb);
-    theAudio->setRecorderMode(AS_SETRECDR_STS_INPUTDEVICE_MIC, 210); // gain +21.0dB (max)
+    theAudio->setRecorderMode(AS_SETRECDR_STS_INPUTDEVICE_MIC, 210, 16000*2); // gain +21.0dB (max)
     theAudio->initRecorder(AS_CODECTYPE_PCM, "/mnt/sd0/BIN", AS_SAMPLINGRATE_16000, AS_BITLENGTH_16, AS_CHANNEL_MONO);
     // theAudio->startRecorder();
 
@@ -74,12 +74,9 @@ void VoiceDetector::begin()
     }
 
     // メモリ確保
-    // voiceBuffer = (int16_t *)MP.AllocSharedMemory(VOICE_BUFF_SIZE + MFCC_FILE_SIZE_MAX); // ※ 96kBだが実際には128kB確保される
-    // fileBuffer = &((uint8_t*)voiceBuffer)[VOICE_BUFF_SIZE]; // ※ voiceBufferの後に配置 (バッドノウハウ)
-    // MP.Send(MSGID_SHARE_MEMORY, voiceBuffer, SUBCORE_VD);
     micBuffer1 = (int16_t *)malloc(VAD_BUFF_SIZE);
     micBuffer2 = (int16_t *)malloc(MIC_BUFF_FRAMES * VAD_BUFF_SIZE);
-    fileBuffer = (uint8_t*)MP.AllocSharedMemory(MFCC_FILE_SIZE_MAX); // ※ 96kBだが実際には128kB確保される
+    fileBuffer = (uint8_t*)malloc(MFCC_FILE_SIZE_MAX);
     MP.Send(MSGID_SHARE_MEMORY, fileBuffer, SUBCORE_VD);
 
     // 音声コマンドのMFCCデータのロード
