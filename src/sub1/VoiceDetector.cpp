@@ -20,14 +20,10 @@
 
 int frameNo; // デバッグ用
 
-const int MIC_BUFF_FRAMES = 3;      // マイクバッファのVADフレーム数 3フレーム
+const int MIC_BUFF_FRAMES = 40; // マイクバッファのVADフレーム数
 constexpr int kSampleRate = 16000;
-// constexpr int audioLength = kSampleRate * 3;  // 3 seconds
-// constexpr int kRxBufferNum = 3;
 const size_t MFCC_FILE_SIZE_MAX = 4096;
 
-//int16_t* rawAudio;
-//int16_t* rxBuffer;
 int16_t* rawBuffer;
 uint8_t* fileBuffer;
 NoiseSuppressor nsInst;

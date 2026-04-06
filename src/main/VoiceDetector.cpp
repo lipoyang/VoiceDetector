@@ -2,14 +2,14 @@
 
 #include <Arduino.h>
 #include <MP.h>
-#include <Audio.h>
 #include "VoiceDetector.h"
+#include "DirectMic.h"
 
 // 音声コマンドMFCCデータファイルのパス (書式付き)
 #define MFCC_FILE_PATH "/mnt/sd0/voice%ld.bin"
 
 // オーディオ
-AudioClass *theAudio;
+static DirectMic mic;
 
 // コアID
 const int SUBCORE_VD  = 1;
@@ -27,37 +27,45 @@ const int8_t MSGID_REQ_LOAD     = 9;  // M->S MFCCデータのロード要求
 const int8_t MSGID_RES_LOAD     = 10; // S->M MFCCデータのロード応答 
 
 // 定数
-const int SAMPLE_RATE    = 16000;   // サンプリング周波数 16kHz
-// const int VOICE_BUFF_SEC = 3;    // 音声コマンド登録用バッファ 3秒ぶん
-const int VAD_FRAME_MSEC = 10;      // VADフレーム 10msec
-const int MIC_BUFF_FRAMES = 3;      // マイクバッファのVADフレーム数 3フレーム
-
-// const size_t VOICE_BUFF_SIZE = SAMPLE_RATE * VOICE_BUFF_SEC * sizeof(int16_t);
-const size_t VAD_BUFF_SIZE   = SAMPLE_RATE * VAD_FRAME_MSEC / 1000 * sizeof(int16_t);
+const int MIC_DATA_FRAMES  = 5;     // マイク入力データのVADフレーム数換算 (50msec / 10msec)
+const int MIC_BUFF_FRAMES  = 40;    // マイクバッファのVADフレーム数
+const int VAD_BUFF_SIZE = 160;      // VADのフレームサイズ (16kHzサンプル × 10msec)  
 const size_t MFCC_FILE_SIZE_MAX = 4096;
 
-// int16_t   *voiceBuffer; // 音声コマンド登録用バッファ
-int16_t   *micBuffer1;  // マイク入力用バッファ1 (マイクから)
-int16_t   *micBuffer2;  // マイク入力用バッファ2 (サブコアへ)
+int16_t    micBuffer[MIC_BUFF_FRAMES][VAD_BUFF_SIZE];  // マイク入力用バッファ2 (サブコアへ)]
 uint8_t   *fileBuffer;  // MFCCファイルバッファ 
 uint32_t   frame_filled = 0;
 uint32_t   frame_index = 0;
 
-// オーディオの警告コールバック
-static void audio_attention_cb(const ErrorAttentionParam *atprm)
+// マイクのエラーハンドラ
+static void onMicError(int err)
 {
-    printf("Attention! code = %d\n", atprm->error_code);
+    printf("Mic Error code = %d\n", err);
+}
+
+// マイクのデータハンドラ
+static void onMicData(int16_t* data)
+{
+    // 48kHzサンプル 40msec ぶんのデータを 10msecごとに 16kHzサンプルにダウンサンプル
+    // ( 1920サンプル → 4 * 160サンプル)
+    for(int i = 0; i < MIC_DATA_FRAMES; i++){
+        for(int j = 0; j < VAD_BUFF_SIZE; j++){
+            micBuffer[frame_index][j] = *data;
+            data += 3;
+        }
+        MP.Send(MSGID_MIC_DATA, micBuffer[frame_index], SUBCORE_VD);
+        frame_index++;
+        if(frame_index >= MIC_BUFF_FRAMES) frame_index = 0;
+    }
 }
 
 // 初期化
 void VoiceDetector::begin()
 {
-    // オーディオ初期化
-    theAudio = AudioClass::getInstance();
-    theAudio->begin(audio_attention_cb);
-    theAudio->setRecorderMode(AS_SETRECDR_STS_INPUTDEVICE_MIC, 210, 16000*2); // gain +21.0dB (max)
-    theAudio->initRecorder(AS_CODECTYPE_PCM, "/mnt/sd0/BIN", AS_SAMPLINGRATE_16000, AS_BITLENGTH_16, AS_CHANNEL_MONO);
-    // theAudio->startRecorder();
+    // マイク初期化
+    mic.onError = onMicError;
+    mic.onData = onMicData;
+    mic.begin();
 
     // サブコア起動
     int ret = MP.begin(SUBCORE_VD);
@@ -74,8 +82,6 @@ void VoiceDetector::begin()
     }
 
     // メモリ確保
-    micBuffer1 = (int16_t *)malloc(VAD_BUFF_SIZE);
-    micBuffer2 = (int16_t *)malloc(MIC_BUFF_FRAMES * VAD_BUFF_SIZE);
     fileBuffer = (uint8_t*)malloc(MFCC_FILE_SIZE_MAX);
     MP.Send(MSGID_SHARE_MEMORY, fileBuffer, SUBCORE_VD);
 
@@ -132,7 +138,7 @@ void VoiceDetector::loop()
     }else{
         switch (ret) {
         case MSGID_ON_REGIST:
-            theAudio->stopRecorder();
+            mic.stop();
             if(msgdata <= MFCC_4){
                 int ret = saveFile(msgdata);
                 if(ret != 0) msgdata = RESULT_ERROR;
@@ -143,7 +149,7 @@ void VoiceDetector::loop()
             state = VD_IDLE;
             break;
         case MSGID_ON_DETECT:
-            theAudio->stopRecorder();
+            mic.stop();
             if (onDetect) {
                 onDetect(msgdata);
             }
@@ -151,7 +157,7 @@ void VoiceDetector::loop()
             break;
         default:
             printf("VoiceDetector: unknown msgid %d\n", msgid);
-            theAudio->stopRecorder();
+            mic.stop();
             state = VD_IDLE;
             break;
         }
@@ -159,28 +165,7 @@ void VoiceDetector::loop()
 
     if(state != VD_IDLE)
     {
-        // マイクから読み出す
-        uint32_t to_read = VAD_BUFF_SIZE - frame_filled;
-        uint32_t read_size = 0;
-
-        int err = theAudio->readFrames((char*)micBuffer1 + frame_filled, to_read, &read_size);
-
-        if (err != AUDIOLIB_ECODE_OK && err != AUDIOLIB_ECODE_INSUFFICIENT_BUFFER_AREA) {
-            printf("VoiceDetector: mic err = %d\n", err);
-            sleep(1);
-            theAudio->stopRecorder();
-            frame_filled = frame_index = 0;
-            return;
-        }
-        
-        frame_filled += read_size;
-        if(frame_filled >= VAD_BUFF_SIZE){
-            frame_filled = 0;
-            memcpy(&micBuffer2[frame_index * VAD_BUFF_SIZE], micBuffer1, VAD_BUFF_SIZE);
-            MP.Send(MSGID_MIC_DATA, &micBuffer2[frame_index * VAD_BUFF_SIZE], SUBCORE_VD);
-            frame_index++;
-            if(frame_index >= MIC_BUFF_FRAMES) frame_index = 0;
-        }
+        mic.loop();
     }
 }
 
@@ -196,7 +181,7 @@ void VoiceDetector::regist(uint32_t command_no)
 
     frame_filled = 0;
     frame_index = 0;
-    theAudio->startRecorder();
+    mic.start();
     state = VD_REGIST0 + command_no;
 }
 
@@ -208,7 +193,7 @@ void VoiceDetector::detect()
 
     frame_filled = 0;
     frame_index = 0;
-    theAudio->startRecorder();
+    mic.start();
     state = VD_DETECT;
 }
 
@@ -218,7 +203,7 @@ void VoiceDetector::cancel()
     uint32_t dummy = 0;
     MP.Send(MSGID_REQ_CANCEL, dummy, SUBCORE_VD);
 
-    theAudio->stopRecorder();
+    mic.start();
     state = VD_IDLE;
 }
 
