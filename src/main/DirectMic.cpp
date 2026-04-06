@@ -17,7 +17,7 @@
 #define BITWIDTH    (16)      // ビット深度
 
 #define NUM_APB (8)           // バッファ段数
-#define SZ_APB  5*480*2       // バッファサイズ (50msecぶん)
+#define SZ_APB  (4800)        // バッファサイズ (2400サンプル×16bit / 48kHz = 50msec)
 
 static struct ap_buffer_s apbs[NUM_APB];  // オーディオバッファ構造体
 static uint8_t buff[NUM_APB][SZ_APB];     // オーディオバッファ用メモリ

@@ -27,12 +27,11 @@ const int8_t MSGID_REQ_LOAD     = 9;  // M->S MFCCデータのロード要求
 const int8_t MSGID_RES_LOAD     = 10; // S->M MFCCデータのロード応答 
 
 // 定数
-const int MIC_DATA_FRAMES  = 5;     // マイク入力データのVADフレーム数換算 (50msec / 10msec)
-const int MIC_BUFF_FRAMES  = 40;    // マイクバッファのVADフレーム数
-const int VAD_BUFF_SIZE = 160;      // VADのフレームサイズ (16kHzサンプル × 10msec)  
+const int MIC_BUFF_STAGES  = 8;     // マイクバッファの段数
+const int MIC_BUFF_SAMPLES = 800;   // マイクバッファの1段あたりサンプル数 800サンプル / 16kHz = 50msec  
 const size_t MFCC_FILE_SIZE_MAX = 4096;
 
-int16_t    micBuffer[MIC_BUFF_FRAMES][VAD_BUFF_SIZE];  // マイク入力用バッファ2 (サブコアへ)]
+int16_t    micBuffer[MIC_BUFF_STAGES][MIC_BUFF_SAMPLES];  // マイク入力用バッファ
 uint8_t   *fileBuffer;  // MFCCファイルバッファ 
 uint32_t   frame_filled = 0;
 uint32_t   frame_index = 0;
@@ -46,17 +45,15 @@ static void onMicError(int err)
 // マイクのデータハンドラ
 static void onMicData(int16_t* data)
 {
-    // 48kHzサンプル 40msec ぶんのデータを 10msecごとに 16kHzサンプルにダウンサンプル
-    // ( 1920サンプル → 4 * 160サンプル)
-    for(int i = 0; i < MIC_DATA_FRAMES; i++){
-        for(int j = 0; j < VAD_BUFF_SIZE; j++){
-            micBuffer[frame_index][j] = *data;
-            data += 3;
-        }
-        MP.Send(MSGID_MIC_DATA, micBuffer[frame_index], SUBCORE_VD);
-        frame_index++;
-        if(frame_index >= MIC_BUFF_FRAMES) frame_index = 0;
+    // 48kHzサンプル 50msec ぶんのデータを 16kHzサンプルにダウンサンプル
+    // ( 2400サンプル → 800サンプル)
+    for(int i = 0; i < MIC_BUFF_SAMPLES; i++){
+        micBuffer[frame_index][i] = *data;
+        data += 3;
     }
+    MP.Send(MSGID_MIC_DATA, micBuffer[frame_index], SUBCORE_VD);
+    frame_index++;
+    if(frame_index >= MIC_BUFF_STAGES) frame_index = 0;
 }
 
 // 初期化

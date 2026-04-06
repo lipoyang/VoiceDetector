@@ -10,17 +10,15 @@
 #include <algorithm> // copy_n
 #include <memory>
 #include <stdio.h>
-//#include <sys/stat.h>
 #include "simplevox.h"
 #include "NoiseSuppressor.h"
 #include "VoiceDetector.h"
 
-//#define base_path "/mnt/sd0"
-//#define file_name "/wakeword.bin"
-
 int frameNo; // デバッグ用
 
-const int MIC_BUFF_FRAMES = 40; // マイクバッファのVADフレーム数
+const int MIC_BUFF_STAGES  = 8;     // マイクバッファの段数
+const int MIC_BUFF_SAMPLES = 800;   // マイクバッファの1段あたりサンプル数 800サンプル / 16kHz = 50msec
+const int VAD_FRAME_SAMPLES = 160;  // VADフレームのサンプル数 160サンプル / 16kHz = 10msec
 constexpr int kSampleRate = 16000;
 const size_t MFCC_FILE_SIZE_MAX = 4096;
 
@@ -179,45 +177,54 @@ bool VoiceDetector::record()
   auto* data = rxMic();
   if (data == nullptr) { return ret; }
 
-  // ノイズ抑制処理
-  nsInst.process(data, data);
+  // 50msecぶんのデータをVADフレーム(10msec)ずつ処理
+  const int FRAMES = MIC_BUFF_SAMPLES / VAD_FRAME_SAMPLES;
+  for(int i = 0; i < FRAMES; i++)
+  {
+    // ノイズ抑制処理
+    nsInst.process(data, data);
 
-  // static int mfccFrameCount = 0;
-  const auto state = vadEngine.process(data);
-  const int vadFrameLength = vadEngine.config().frame_length();
-  const int mfccFrameLength = mfccEngine.config().frame_length();
-  const int mfccHopLength = mfccEngine.config().hop_length();
-  // Silence以上ならrawBufferにデータを追加
-  if (state >= simplevox::VadState::Silence)
-  {
-    raw_pushBack(data, vadFrameLength);
-  }
-  // rawBufferにMFCCのframe_length()以上のデータがある場合はMFCCを算出
-  while (raw_size() >= mfccFrameLength && mfccFrameCount < mfccFrameNum)
-  {
-    // feature_pushBack
-    mfccEngine.calculate(raw_front(), feature_get(mfccFrameCount));
-    mfccFrameCount++;
-    raw_popFront(mfccHopLength);  // hop_length分シフト
-  }
-  // Speech以前(Silence, PreDetection)の場合はmfccBeforeFrameNumを超えた分は取り除く(シフトする)
-  if (state < simplevox::VadState::Speech && mfccFrameCount > mfccBeforeFrameNum)
-  {
-    const int shiftCount = mfccFrameCount - mfccBeforeFrameNum;
-    const int shiftLength = shiftCount * mfccCoefNum;
-    std::copy_n(&features[shiftLength], mfccFrameCount * mfccCoefNum - shiftLength, features);
-    mfccFrameCount -= shiftCount;
-  }
-  // 検出完了もしくは最大フレームに到達した場合は判定終了
-  if (state == simplevox::VadState::Detected
-      || (state >= simplevox::VadState::Speech && mfccFrameNum <= mfccFrameCount))
-  {
+    // static int mfccFrameCount = 0;
+    const auto state = vadEngine.process(data);
+    const int vadFrameLength = vadEngine.config().frame_length();
+    const int mfccFrameLength = mfccEngine.config().frame_length();
+    const int mfccHopLength = mfccEngine.config().hop_length();
+    // Silence以上ならrawBufferにデータを追加
+    if (state >= simplevox::VadState::Silence)
+    {
+      raw_pushBack(data, vadFrameLength);
+    }
+    // rawBufferにMFCCのframe_length()以上のデータがある場合はMFCCを算出
+    while (raw_size() >= mfccFrameLength && mfccFrameCount < mfccFrameNum)
+    {
+      // feature_pushBack
+      mfccEngine.calculate(raw_front(), feature_get(mfccFrameCount));
+      mfccFrameCount++;
+      raw_popFront(mfccHopLength);  // hop_length分シフト
+    }
+    // Speech以前(Silence, PreDetection)の場合はmfccBeforeFrameNumを超えた分は取り除く(シフトする)
+    if (state < simplevox::VadState::Speech && mfccFrameCount > mfccBeforeFrameNum)
+    {
+      const int shiftCount = mfccFrameCount - mfccBeforeFrameNum;
+      const int shiftLength = shiftCount * mfccCoefNum;
+      std::copy_n(&features[shiftLength], mfccFrameCount * mfccCoefNum - shiftLength, features);
+      mfccFrameCount -= shiftCount;
+    }
+    // 検出完了もしくは最大フレームに到達した場合は判定終了
+    if (state == simplevox::VadState::Detected
+        || (state >= simplevox::VadState::Speech && mfccFrameNum <= mfccFrameCount))
+    {
 #if defined(WAV_FILE_DEBUG) || defined(MIC_DEBUG)
-      float t_end = (float)frameNo * 0.01f;
-      MPLog("Voice End @ %.2f sec\n", t_end);
+        float t_end = (float)frameNo * 0.01f;
+        MPLog("Voice End @ %.2f sec\n", t_end);
 #endif
-    ret = true;
+      ret = true;
+    }
+
+    if(ret) return ret;
+    data += VAD_FRAME_SAMPLES; // 次のVADフレーム
   }
+
   return ret;
 }
 
@@ -289,7 +296,7 @@ int VoiceDetector::detect()
 // data : マイク音声データ
 void VoiceDetector::putMicData(int16_t *data)
 {
-  if( micQueue.size() >= MIC_BUFF_FRAMES){
+  if( micQueue.size() >= MIC_BUFF_STAGES){
     MPLog("Buffer over flow!\n");
     return;
   }
