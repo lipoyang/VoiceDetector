@@ -255,15 +255,6 @@ void DirectMic::start()
         // メッセージキューをクリア
         cleanup_messageq(micmq);
 
-        // メッセージキューをデバイスに設定
-        register_messageq(micfd, micmq);
-
-        // デバイスの設定
-        configure(micfd, AUDIO_TYPE_INPUT,  CHANNEL_NUM, SAMPLE_RATE, BITWIDTH);
-
-        // 音量を設定 (1000が最大)
-        set_volgain(micfd, false, 1000);
-
         // 全てのバッファをデバイスに
         for (int i = 0; i < NUM_APB; i++)
         {

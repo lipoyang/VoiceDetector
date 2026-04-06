@@ -129,14 +129,9 @@ void VoiceDetector::begin(uint8_t *fileBuffer)
   auto mfccConfig = mfccEngine.config();
   mfccConfig.sample_rate = kSampleRate;
 
-#if 0
-  rawAudio = (int16_t*)malloc(audioLength * sizeof(*rawAudio));
-  rxBuffer = (int16_t*)malloc(kRxBufferNum * vadConfig.frame_length() * sizeof(*rxBuffer));
-#else
   // メインコアで確保した共有メモリを使用 (by Bizan Nishimura)
-  //rawAudio = voiceBuffer;
   ::fileBuffer = fileBuffer;
-#endif  
+  
   raw_init(mfccConfig.frame_length() + vadConfig.frame_length());
   feature_init(mfccConfig, vadConfig, 3000);
 
@@ -151,21 +146,6 @@ void VoiceDetector::begin(uint8_t *fileBuffer)
     MPLog("Failed to initialize mfcc.\n");
     while(true) delay(10);
   }
-  
-#if 0 // (by Bizan Nishimura)
-  struct stat st;
-
-  if (stat(base_path file_name, &st) == 0) {
-    if ((st.st_mode & S_IFMT) == S_IFREG) {
-      MPLog("wakeword.bin exists.\n");
-      mfcc = mfccEngine.loadFile(base_path file_name);
-    }else{
-      MPLog("wakeword.bin is not a normal file!\n");
-    }
-  }else{
-    MPLog("wakeword.bin not found.\n");
-  }
-#endif
 }
 
 // VoiceDetector::regist() と VoiceDetector::detect() の共通処理
