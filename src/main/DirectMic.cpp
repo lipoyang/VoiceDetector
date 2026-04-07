@@ -12,12 +12,15 @@
 #include <poll.h>
 #include <nuttx/audio/audio.h>
 
-#define CHANNEL_NUM (1)       // チャンネル数
-#define SAMPLE_RATE (48000)   // サンプリング周波数 (48kHz以外では動かない？？？)
+#define CHANNEL_NUM (1)       // チャンネル数 (モノラル)
+#define SAMPLE_RATE (48000)   // サンプリング周波数 (48kHz固定？)
 #define BITWIDTH    (16)      // ビット深度
 
 #define NUM_APB (8)           // バッファ段数
-#define SZ_APB  (4800)        // バッファサイズ (2400サンプル×16bit / 48kHz = 50msec)
+#define SZ_APB  (4096)        // バッファサイズ (4096バイト固定？)
+// ※ モノラルでは偶奇に同じデータが入る仕様？
+// ※ そのため 4096バイトは 2048サンプル だが 実質は 1024サンプル
+// ※ 1024 / 48kHz = 21.333msec
 
 static struct ap_buffer_s apbs[NUM_APB];  // オーディオバッファ構造体
 static uint8_t buff[NUM_APB][SZ_APB];     // オーディオバッファ用メモリ
@@ -182,7 +185,7 @@ static int handle_msg(mqd_t mq, int fd, int16_t **data)
         apb = (FAR struct ap_buffer_s *)msg.u.ptr;
 
         *data = (FAR int16_t *)apb->samp;
-        // printf("0: %7d, %7d, %7d, %7d\n", data[0], data[1], data[2], data[3]);
+        // printf("mic: %7d, %7d, %7d, %7d\n", (*data)[0], (*data)[1], (*data)[2], (*data)[3]);
 
         enqueue_buffer(fd, apb);
         break;

@@ -60,7 +60,6 @@ int16_t* VoiceDetector::rxMic()
   if(micQueue.empty()){
     return nullptr;
   }else{
-    frameNo++;
     int16_t *data = micQueue.front();
     micQueue.pop();
     return data;
@@ -161,6 +160,8 @@ bool VoiceDetector::record()
   const int FRAMES = MIC_BUFF_SAMPLES / VAD_FRAME_SAMPLES;
   for(int i = 0; i < FRAMES; i++)
   {
+    frameNo++;
+
     // ノイズ抑制処理
     nsInst.process(data, data);
 

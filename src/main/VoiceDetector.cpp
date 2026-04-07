@@ -27,14 +27,16 @@ const int8_t MSGID_REQ_LOAD     = 9;  // M->S MFCCデータのロード要求
 const int8_t MSGID_RES_LOAD     = 10; // S->M MFCCデータのロード応答 
 
 // 定数
+const int MIC_DRV_SAMPLES = 2048;   // マイクドライバの1メッセージあたりサンプル数 
 const int MIC_BUFF_STAGES  = 8;     // マイクバッファの段数
 const int MIC_BUFF_SAMPLES = 800;   // マイクバッファの1段あたりサンプル数 800サンプル / 16kHz = 50msec  
 const size_t MFCC_FILE_SIZE_MAX = 4096;
 
-int16_t    micBuffer[MIC_BUFF_STAGES][MIC_BUFF_SAMPLES];  // マイク入力用バッファ
-uint8_t   *fileBuffer;  // MFCCファイルバッファ 
-uint32_t   frame_filled = 0;
-uint32_t   frame_index = 0;
+static int16_t    micBuffer[MIC_BUFF_STAGES][MIC_BUFF_SAMPLES];  // マイク入力用バッファ
+static uint32_t   stage_index = 0;  // マイク用バッファの段数インデックス
+static uint32_t   in_index = 0;     // ダウンサンプルの入力インデックス
+static uint32_t   out_index = 0;    // ダウンサンプルの出力インデックス
+static uint8_t   *fileBuffer;       // MFCCファイルバッファ 
 
 // マイクのエラーハンドラ
 static void onMicError(int err)
@@ -45,15 +47,21 @@ static void onMicError(int err)
 // マイクのデータハンドラ
 static void onMicData(int16_t* data)
 {
-    // 48kHzサンプル 50msec ぶんのデータを 16kHzサンプルにダウンサンプル
-    // ( 2400サンプル → 800サンプル)
-    for(int i = 0; i < MIC_BUFF_SAMPLES; i++){
-        micBuffer[frame_index][i] = *data;
-        data += 3;
+    // 48kHzサンプル 4096バイト(2048サンプル, ステレオ(左右同じ)) のデータを
+    // 16kHzサンプル モノラル にダウンサンプル (6サンプルに1サンプルに間引く)
+    // 800サンプルたまったらメッセージ送信
+    while(in_index < MIC_DRV_SAMPLES){
+        micBuffer[stage_index][out_index] = data[in_index];
+        in_index += 6;
+        out_index++;
+        if(out_index >= MIC_BUFF_SAMPLES){
+            MP.Send(MSGID_MIC_DATA, micBuffer[stage_index], SUBCORE_VD);
+            out_index = 0;
+            stage_index++;
+            if(stage_index >= MIC_BUFF_STAGES) stage_index = 0;
+        }
     }
-    MP.Send(MSGID_MIC_DATA, micBuffer[frame_index], SUBCORE_VD);
-    frame_index++;
-    if(frame_index >= MIC_BUFF_STAGES) frame_index = 0;
+    in_index %= MIC_DRV_SAMPLES; // 端数調整
 }
 
 // 初期化
@@ -176,8 +184,9 @@ void VoiceDetector::regist(uint32_t command_no)
     }
     MP.Send(MSGID_REQ_REGIST, command_no, SUBCORE_VD);
 
-    frame_filled = 0;
-    frame_index = 0;
+    stage_index = 0;
+    in_index = 0;
+    out_index = 0;
     mic.start();
     state = VD_REGIST0 + command_no;
 }
@@ -188,8 +197,9 @@ void VoiceDetector::detect()
     uint32_t dummy = 0;
     MP.Send(MSGID_REQ_DETECT, dummy, SUBCORE_VD);
 
-    frame_filled = 0;
-    frame_index = 0;
+    stage_index = 0;
+    in_index = 0;
+    out_index = 0;
     mic.start();
     state = VD_DETECT;
 }
